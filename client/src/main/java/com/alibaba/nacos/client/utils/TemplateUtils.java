@@ -65,7 +65,7 @@ public class TemplateUtils {
             }
         }
 
-        return source.trim();
+        return source == null ? null : source.trim();
     }
 
     /**
@@ -86,6 +86,6 @@ public class TemplateUtils {
             }
         }
 
-        return source.trim();
+        return source == null ? null : source.trim();
     }
 }

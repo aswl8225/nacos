@@ -22,7 +22,7 @@ import com.alibaba.nacos.auth.annotation.Secured;
 import com.alibaba.nacos.auth.common.ActionTypes;
 import com.alibaba.nacos.common.model.RestResult;
 import com.alibaba.nacos.common.model.RestResultUtils;
-import com.alibaba.nacos.common.utils.MapUtils;
+import com.alibaba.nacos.common.utils.MapUtil;
 import com.alibaba.nacos.common.utils.NamespaceUtil;
 import com.alibaba.nacos.config.server.auth.ConfigResourceParser;
 import com.alibaba.nacos.config.server.constant.Constants;
@@ -48,8 +48,11 @@ import com.alibaba.nacos.config.server.utils.RequestUtil;
 import com.alibaba.nacos.config.server.utils.TimeUtils;
 import com.alibaba.nacos.config.server.utils.ZipUtils;
 import com.alibaba.nacos.sys.utils.InetUtils;
+import org.apache.catalina.connector.Request;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
+import org.apache.tomcat.util.buf.ByteChunk;
+import org.apache.tomcat.util.http.Parameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,12 +73,14 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.URLDecoder;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -98,19 +103,14 @@ public class ConfigController {
 
     private static final String EXPORT_CONFIG_FILE_NAME_DATE_FORMAT = "yyyyMMddHHmmss";
 
-    private final ConfigServletInner inner;
-
-    private final PersistService persistService;
-
-    private final ConfigSubService configSubService;
+    @Autowired
+    private ConfigServletInner inner;
 
     @Autowired
-    public ConfigController(ConfigServletInner configServletInner, PersistService persistService,
-            ConfigSubService configSubService) {
-        this.inner = configServletInner;
-        this.persistService = persistService;
-        this.configSubService = configSubService;
-    }
+    private PersistService persistService;
+
+    @Autowired
+    private ConfigSubService configSubService;
 
     /**
      * Adds or updates non-aggregated data.
@@ -153,12 +153,12 @@ public class ConfigController {
         ParamUtils.checkParam(dataId, group, "datumId", content);
         ParamUtils.checkParam(tag);
         Map<String, Object> configAdvanceInfo = new HashMap<String, Object>(10);
-        MapUtils.putIfValNoNull(configAdvanceInfo, "config_tags", configTags);
-        MapUtils.putIfValNoNull(configAdvanceInfo, "desc", desc);
-        MapUtils.putIfValNoNull(configAdvanceInfo, "use", use);
-        MapUtils.putIfValNoNull(configAdvanceInfo, "effect", effect);
-        MapUtils.putIfValNoNull(configAdvanceInfo, "type", type);
-        MapUtils.putIfValNoNull(configAdvanceInfo, "schema", schema);
+        MapUtil.putIfValNoNull(configAdvanceInfo, "config_tags", configTags);
+        MapUtil.putIfValNoNull(configAdvanceInfo, "desc", desc);
+        MapUtil.putIfValNoNull(configAdvanceInfo, "use", use);
+        MapUtil.putIfValNoNull(configAdvanceInfo, "effect", effect);
+        MapUtil.putIfValNoNull(configAdvanceInfo, "type", type);
+        MapUtil.putIfValNoNull(configAdvanceInfo, "schema", schema);
         ParamUtils.checkParam(configAdvanceInfo);
         /**
          * dataId白名单过滤
@@ -185,14 +185,14 @@ public class ConfigController {
                 /**
                  * tag为空   config_info&config_tags_relation&his_config_info
                  */
-                persistService.insertOrUpdate(srcIp, srcUser, configInfo, time, configAdvanceInfo, true);
+                persistService.insertOrUpdate(srcIp, srcUser, configInfo, time, configAdvanceInfo, false);
                 ConfigChangePublisher
                         .notifyConfigChange(new ConfigDataChangeEvent(false, dataId, group, tenant, time.getTime()));
             } else {
                 /**
                  * tag不为空  config_info_tag
                  */
-                persistService.insertOrUpdateTag(configInfo, tag, srcIp, srcUser, time, true);
+                persistService.insertOrUpdateTag(configInfo, tag, srcIp, srcUser, time, false);
                 ConfigChangePublisher.notifyConfigChange(
                         new ConfigDataChangeEvent(false, dataId, group, tenant, tag, time.getTime()));
             }
@@ -201,7 +201,7 @@ public class ConfigController {
             /**
              * beta发布  config_info_beta
              */
-            persistService.insertOrUpdateBeta(configInfo, betaIps, srcIp, srcUser, time, true);
+            persistService.insertOrUpdateBeta(configInfo, betaIps, srcIp, srcUser, time, false);
             ConfigChangePublisher
                     .notifyConfigChange(new ConfigDataChangeEvent(true, dataId, group, tenant, time.getTime()));
         }
@@ -212,7 +212,7 @@ public class ConfigController {
     }
 
     /**
-     * Get configure board infomation fail.
+     * Get configure board information fail.
      *
      * @throws ServletException ServletException.
      * @throws IOException      IOException.
@@ -233,7 +233,8 @@ public class ConfigController {
         ParamUtils.checkParam(tag);
 
         final String clientIp = RequestUtil.getRemoteIp(request);
-        inner.doGetConfig(request, response, dataId, group, tenant, tag, clientIp);
+        String isNotify = request.getHeader("notify");
+        inner.doGetConfig(request, response, dataId, group, tenant, tag, isNotify, clientIp);
     }
 
     /**
@@ -326,6 +327,46 @@ public class ConfigController {
         return rr;
     }
 
+    private void removeRequestContext(HttpServletRequest request) {
+        try {
+
+            request.removeAttribute("body");
+
+            Map<String, String[]> parameterMap = request.getParameterMap();
+            Field locked = parameterMap.getClass().getDeclaredField("locked");
+            locked.setAccessible(true);
+            locked.set(parameterMap, false);
+            parameterMap.remove(Constants.PROBE_MODIFY_REQUEST);
+
+            Field inneRequestFiled = request.getClass().getDeclaredField("request");
+            inneRequestFiled.setAccessible(true);
+            Request innerRequest = (Request) inneRequestFiled.get(request);
+
+            Field coyoteRequest = innerRequest.getClass().getDeclaredField("coyoteRequest");
+            coyoteRequest.setAccessible(true);
+            org.apache.coyote.Request coyotoRequest = (org.apache.coyote.Request) coyoteRequest.get(innerRequest);
+            Parameters parameters = coyotoRequest.getParameters();
+            Field hashMapField = parameters.getClass().getDeclaredField("paramHashValues");
+            hashMapField.setAccessible(true);
+            LinkedHashMap hashMaps = (LinkedHashMap) hashMapField.get(parameters);
+            hashMaps.remove(Constants.PROBE_MODIFY_REQUEST);
+
+            Field tmpNameField = parameters.getClass().getDeclaredField("tmpName");
+            tmpNameField.setAccessible(true);
+            ByteChunk tmpName = (ByteChunk) tmpNameField.get(parameters);
+            byte[] bytemp = new byte[0];
+            tmpName.setBytes(bytemp, 0, 0);
+
+            Field tmpValueField = parameters.getClass().getDeclaredField("tmpValue");
+            tmpValueField.setAccessible(true);
+            ByteChunk tmpValue = (ByteChunk) tmpValueField.get(parameters);
+            tmpValue.setBytes(bytemp, 0, 0);
+
+        } catch (Exception e) {
+            LOGGER.warn("remove listen request param error", e);
+        }
+    }
+
     /**
      * The client listens for configuration changes.
      */
@@ -333,9 +374,13 @@ public class ConfigController {
     @Secured(action = ActionTypes.READ, parser = ConfigResourceParser.class)
     public void listener(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+
         request.setAttribute("org.apache.catalina.ASYNC_SUPPORTED", true);
+        //remove large listen context , reduce request content to optimize cms gc.
+        removeRequestContext(request);
         String probeModify = request.getParameter("Listening-Configs");
         if (StringUtils.isBlank(probeModify)) {
+            LOGGER.warn("invalid probeModify is blank");
             throw new IllegalArgumentException("invalid probeModify");
         }
 
@@ -442,7 +487,7 @@ public class ConfigController {
         RestResult<Boolean> rr = new RestResult<Boolean>();
         try {
             persistService.removeConfigInfo4Beta(dataId, group, tenant);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             LOGGER.error("remove beta data error", e);
             rr.setCode(500);
             rr.setData(false);
@@ -477,7 +522,7 @@ public class ConfigController {
             rr.setData(ci);
             rr.setMessage("stop beta ok");
             return rr;
-        } catch (Exception e) {
+        } catch (Throwable e) {
             LOGGER.error("remove beta data error", e);
             rr.setCode(500);
             rr.setMessage("remove beta data error");

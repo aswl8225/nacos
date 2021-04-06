@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.PostConstruct;
+import java.util.Map;
 
 /**
  * Health service.
@@ -63,15 +64,20 @@ public class HealthController {
         // TODO UP DOWN WARN
         StringBuilder sb = new StringBuilder();
         String dbStatus = dataSourceService.getHealth();
-        if (dbStatus.contains(heathUpStr) && memberManager.isInIpList()) {
+        boolean addressServerHealthy = isAddressServerHealthy();
+        if (dbStatus.contains(heathUpStr) && addressServerHealthy && memberManager.isInIpList()) {
             sb.append(heathUpStr);
-        } else if (dbStatus.contains(heathWarnStr) && memberManager.isInIpList()) {
+        } else if (dbStatus.contains(heathWarnStr) && addressServerHealthy && memberManager.isInIpList()) {
             sb.append("WARN:");
             sb.append("slave db (").append(dbStatus.split(":")[1]).append(") down. ");
         } else {
             sb.append("DOWN:");
             if (dbStatus.contains(heathDownStr)) {
                 sb.append("master db (").append(dbStatus.split(":")[1]).append(") down. ");
+            }
+
+            if (!addressServerHealthy) {
+                sb.append("address server down. ");
             }
             if (!memberManager.isInIpList()) {
                 sb.append("server ip ").append(InetUtils.getSelfIP())
@@ -80,6 +86,12 @@ public class HealthController {
         }
 
         return sb.toString();
+    }
+
+    private boolean isAddressServerHealthy() {
+        Map<String, Object> info = memberManager.getLookup().info();
+        return info != null && info.get("addressServerHealth") != null && Boolean
+                .valueOf(info.get("addressServerHealth").toString());
     }
 
 }

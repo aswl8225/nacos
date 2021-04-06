@@ -26,20 +26,19 @@ import com.alibaba.nacos.api.naming.pojo.ListView;
 import com.alibaba.nacos.api.naming.pojo.ServiceInfo;
 import com.alibaba.nacos.api.naming.utils.NamingUtils;
 import com.alibaba.nacos.api.selector.AbstractSelector;
-import com.alibaba.nacos.client.naming.beat.BeatInfo;
-import com.alibaba.nacos.client.naming.beat.BeatReactor;
+import com.alibaba.nacos.client.naming.cache.ServiceInfoHolder;
 import com.alibaba.nacos.client.naming.core.Balancer;
-import com.alibaba.nacos.client.naming.core.EventDispatcher;
-import com.alibaba.nacos.client.naming.core.HostReactor;
-import com.alibaba.nacos.client.naming.net.NamingProxy;
+import com.alibaba.nacos.client.naming.event.InstancesChangeEvent;
+import com.alibaba.nacos.client.naming.event.InstancesChangeNotifier;
+import com.alibaba.nacos.client.naming.remote.NamingClientProxy;
+import com.alibaba.nacos.client.naming.remote.NamingClientProxyDelegate;
 import com.alibaba.nacos.client.naming.utils.CollectionUtils;
 import com.alibaba.nacos.client.naming.utils.InitUtils;
 import com.alibaba.nacos.client.naming.utils.UtilAndComs;
 import com.alibaba.nacos.client.utils.ValidatorUtils;
-import com.alibaba.nacos.common.utils.ConvertUtils;
+import com.alibaba.nacos.common.notify.NotifyCenter;
 import com.alibaba.nacos.common.utils.StringUtils;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -58,21 +57,13 @@ public class NacosNamingService implements NamingService {
      */
     private String namespace;
 
-    private String endpoint;
-
-    private String serverList;
-
-    private String cacheDir;
-
     private String logName;
 
-    private HostReactor hostReactor;
+    private ServiceInfoHolder serviceInfoHolder;
 
-    private BeatReactor beatReactor;
+    private InstancesChangeNotifier changeNotifier;
 
-    private EventDispatcher eventDispatcher;
-
-    private NamingProxy serverProxy;
+    private NamingClientProxy clientProxy;
 
     public NacosNamingService(String serverList) throws NacosException {
         Properties properties = new Properties();
@@ -91,113 +82,14 @@ public class NacosNamingService implements NamingService {
          */
         this.namespace = InitUtils.initNamespaceForNaming(properties);
         InitUtils.initSerialization();
-        /**
-         * 初始化服务器地址
-         */
-        initServerAddr(properties);
-        /**
-         * 初始化WebRootContext
-         */
-        InitUtils.initWebRootContext();
-        /**
-         * 初始化cache路径
-         */
-        initCacheDir();
-        /**
-         * 初始化LogName  默认naming.log
-         */
+        InitUtils.initWebRootContext(properties);
         initLogName(properties);
-        /**
-         * 事件监听   当客户端监听的nacos集群上的Instance发生变化   这里负责在客户端层次通知
-         */
-        this.eventDispatcher = new EventDispatcher();
-        /**
-         * 初始化NamingProxy   负责发送http请求
-         */
-        this.serverProxy = new NamingProxy(this.namespace, this.endpoint, this.serverList, properties);
-        /**
-         * 心跳Reactor
-         */
-        this.beatReactor = new BeatReactor(this.serverProxy, initClientBeatThreadCount(properties));
-        this.hostReactor = new HostReactor(this.eventDispatcher, this.serverProxy, beatReactor, this.cacheDir,
-                isLoadCacheAtStart(properties), initPollingThreadCount(properties));
-    }
 
-
-    /**
-     * 客户端心跳线程数
-     * @param properties
-     * @return
-     */
-    private int initClientBeatThreadCount(Properties properties) {
-        if (properties == null) {
-            return UtilAndComs.DEFAULT_CLIENT_BEAT_THREAD_COUNT;
-        }
-        /**
-         * NAMING_CLIENT_BEAT_THREAD_COUNT为空   则取DEFAULT_CLIENT_BEAT_THREAD_COUNT
-         */
-        return ConvertUtils.toInt(properties.getProperty(PropertyKeyConst.NAMING_CLIENT_BEAT_THREAD_COUNT),
-                UtilAndComs.DEFAULT_CLIENT_BEAT_THREAD_COUNT);
-    }
-
-
-    /**
-     * 设置Polling的线程数
-     * @param properties
-     * @return
-     */
-    private int initPollingThreadCount(Properties properties) {
-        if (properties == null) {
-
-            return UtilAndComs.DEFAULT_POLLING_THREAD_COUNT;
-        }
-
-        return ConvertUtils.toInt(properties.getProperty(PropertyKeyConst.NAMING_POLLING_THREAD_COUNT),
-                UtilAndComs.DEFAULT_POLLING_THREAD_COUNT);
-    }
-
-
-    /**
-     * 是否加载缓存
-     * @param properties
-     * @return
-     */
-    private boolean isLoadCacheAtStart(Properties properties) {
-        boolean loadCacheAtStart = false;
-        /**
-         * 获取NAMING_LOAD_CACHE_AT_START对应的值
-         */
-        if (properties != null && StringUtils
-                .isNotEmpty(properties.getProperty(PropertyKeyConst.NAMING_LOAD_CACHE_AT_START))) {
-            loadCacheAtStart = ConvertUtils
-                    .toBoolean(properties.getProperty(PropertyKeyConst.NAMING_LOAD_CACHE_AT_START));
-        }
-
-        return loadCacheAtStart;
-    }
-
-
-    /**
-     * 初始化服务器地址
-     * @param properties
-     */
-    private void initServerAddr(Properties properties) {
-        /**
-         * 访问的nacos集群地址
-         */
-        serverList = properties.getProperty(PropertyKeyConst.SERVER_ADDR);
-
-        /**
-         * 初始化endpoint
-         */
-        endpoint = InitUtils.initEndpoint(properties);
-
-        /**
-         * 如果endpoint不为空   则设置serverList为空
-         */
-        if (StringUtils.isNotEmpty(endpoint)) {
-            serverList = "";
-        }
+        this.changeNotifier = new InstancesChangeNotifier();
+        NotifyCenter.registerToPublisher(InstancesChangeEvent.class, 16384);
+        NotifyCenter.registerSubscriber(changeNotifier);
+        this.serviceInfoHolder = new ServiceInfoHolder(namespace, properties);
+        this.clientProxy = new NamingClientProxyDelegate(this.namespace, serviceInfoHolder, properties, changeNotifier);
     }
 
 
@@ -215,24 +107,6 @@ public class NacosNamingService implements NamingService {
             } else {
                 logName = "naming.log";
             }
-        }
-    }
-
-
-    /**
-     * 初始化cache路径
-     */
-    private void initCacheDir() {
-        String jmSnapshotPath = System.getProperty("JM.SNAPSHOT.PATH");
-        if (!StringUtils.isBlank(jmSnapshotPath)) {
-            cacheDir = jmSnapshotPath + File.separator + "nacos" + File.separator + "naming"
-                    + File.separator + namespace;
-        } else {
-            /**
-             * C:\Users\Administrator/nacos/naming/public
-             */
-            cacheDir = System.getProperty("user.home") + File.separator + "nacos" + File.separator + "naming"
-                    + File.separator + namespace;
         }
     }
 
@@ -276,15 +150,11 @@ public class NacosNamingService implements NamingService {
     @Override
     public void registerInstance(String serviceName, String groupName, String ip, int port, String clusterName)
             throws NacosException {
-        /**
-         * init  Instance
-         */
         Instance instance = new Instance();
         instance.setIp(ip);
         instance.setPort(port);
         instance.setWeight(1.0);
         instance.setClusterName(clusterName);
-
         registerInstance(serviceName, groupName, instance);
     }
 
@@ -303,21 +173,8 @@ public class NacosNamingService implements NamingService {
      */
     @Override
     public void registerInstance(String serviceName, String groupName, Instance instance) throws NacosException {
-        String groupedServiceName = NamingUtils.getGroupedName(serviceName, groupName);
-        /**
-         * 默认为临时节点
-         */
-        if (instance.isEphemeral()) {
-            BeatInfo beatInfo = beatReactor.buildBeatInfo(groupedServiceName, instance);
-            /**
-             * 临时节点   需要不断的向nacos发送心跳
-             */
-            beatReactor.addBeatInfo(groupedServiceName, beatInfo);
-        }
-        /**
-         * 注册服务
-         */
-        serverProxy.registerService(groupedServiceName, groupName, instance);
+        NamingUtils.checkInstanceIsLegal(instance);
+        clientProxy.registerService(serviceName, groupName, instance);
     }
 
     @Override
@@ -364,8 +221,6 @@ public class NacosNamingService implements NamingService {
         instance.setIp(ip);
         instance.setPort(port);
         instance.setClusterName(clusterName);
-
-
         /**
          * 注销
          */
@@ -387,21 +242,7 @@ public class NacosNamingService implements NamingService {
      */
     @Override
     public void deregisterInstance(String serviceName, String groupName, Instance instance) throws NacosException {
-        /**
-         * 临时节点
-         */
-        if (instance.isEphemeral()) {
-            /**
-             * 移除心跳
-             */
-            beatReactor.removeBeatInfo(NamingUtils.getGroupedName(serviceName, groupName), instance.getIp(),
-                    instance.getPort());
-        }
-
-        /**
-         * 通知服务器  注销
-         */
-        serverProxy.deregisterService(NamingUtils.getGroupedName(serviceName, groupName), instance);
+        clientProxy.deregisterService(serviceName, groupName, instance);
     }
 
 
@@ -482,21 +323,21 @@ public class NacosNamingService implements NamingService {
     @Override
     public List<Instance> getAllInstances(String serviceName, String groupName, List<String> clusters,
             boolean subscribe) throws NacosException {
-
         ServiceInfo serviceInfo;
+        String clusterString = StringUtils.join(clusters, ",");
         if (subscribe) {
             /**
              * 从本地缓存中查询实例
              */
-            serviceInfo = hostReactor.getServiceInfo(NamingUtils.getGroupedName(serviceName, groupName),
-                    StringUtils.join(clusters, ","));
+            serviceInfo = serviceInfoHolder.getServiceInfo(serviceName, groupName, clusterString);
+            if (null == serviceInfo) {
+                serviceInfo = clientProxy.subscribe(serviceName, groupName, clusterString);
+            }
         } else {
             /**
              * 直接向服务端查询实例
              */
-            serviceInfo = hostReactor
-                    .getServiceInfoDirectlyFromServer(NamingUtils.getGroupedName(serviceName, groupName),
-                            StringUtils.join(clusters, ","));
+            serviceInfo = clientProxy.queryInstancesOfService(serviceName, groupName, clusterString, 0, false);
         }
         List<Instance> list;
         if (serviceInfo == null || CollectionUtils.isEmpty(list = serviceInfo.getHosts())) {
@@ -550,13 +391,14 @@ public class NacosNamingService implements NamingService {
             boolean subscribe) throws NacosException {
 
         ServiceInfo serviceInfo;
+        String clusterString = StringUtils.join(clusters, ",");
         if (subscribe) {
-            serviceInfo = hostReactor.getServiceInfo(NamingUtils.getGroupedName(serviceName, groupName),
-                    StringUtils.join(clusters, ","));
+            serviceInfo = serviceInfoHolder.getServiceInfo(serviceName, groupName, clusterString);
+            if (null == serviceInfo) {
+                serviceInfo = clientProxy.subscribe(serviceName, groupName, clusterString);
+            }
         } else {
-            serviceInfo = hostReactor
-                    .getServiceInfoDirectlyFromServer(NamingUtils.getGroupedName(serviceName, groupName),
-                            StringUtils.join(clusters, ","));
+            serviceInfo = clientProxy.queryInstancesOfService(serviceName, groupName, clusterString, 0, false);
         }
         return selectInstances(serviceInfo, healthy);
     }
@@ -619,15 +461,17 @@ public class NacosNamingService implements NamingService {
     @Override
     public Instance selectOneHealthyInstance(String serviceName, String groupName, List<String> clusters,
             boolean subscribe) throws NacosException {
-
+        String clusterString = StringUtils.join(clusters, ",");
         if (subscribe) {
-            return Balancer.RandomByWeight.selectHost(hostReactor
-                    .getServiceInfo(NamingUtils.getGroupedName(serviceName, groupName),
-                            StringUtils.join(clusters, ",")));
+            ServiceInfo serviceInfo = serviceInfoHolder.getServiceInfo(serviceName, groupName, clusterString);
+            if (null == serviceInfo) {
+                serviceInfo = clientProxy.subscribe(serviceName, groupName, clusterString);
+            }
+            return Balancer.RandomByWeight.selectHost(serviceInfo);
         } else {
-            return Balancer.RandomByWeight.selectHost(hostReactor
-                    .getServiceInfoDirectlyFromServer(NamingUtils.getGroupedName(serviceName, groupName),
-                            StringUtils.join(clusters, ",")));
+            ServiceInfo serviceInfo = clientProxy
+                    .queryInstancesOfService(serviceName, groupName, clusterString, 0, false);
+            return Balancer.RandomByWeight.selectHost(serviceInfo);
         }
     }
 
@@ -673,12 +517,15 @@ public class NacosNamingService implements NamingService {
     @Override
     public void subscribe(String serviceName, String groupName, List<String> clusters, EventListener listener)
             throws NacosException {
+        if (null == listener) {
+            return;
+        }
         /**
          * 监听
          */
-        eventDispatcher.addListener(hostReactor
-                        .getServiceInfo(NamingUtils.getGroupedName(serviceName, groupName), StringUtils.join(clusters, ",")),
-                StringUtils.join(clusters, ","), listener);
+        String clusterString = StringUtils.join(clusters, ",");
+        changeNotifier.registerListener(groupName, serviceName, clusterString, listener);
+        clientProxy.subscribe(serviceName, groupName, clusterString);
     }
 
     @Override
@@ -699,14 +546,16 @@ public class NacosNamingService implements NamingService {
     @Override
     public void unsubscribe(String serviceName, String groupName, List<String> clusters, EventListener listener)
             throws NacosException {
-        eventDispatcher
-                .removeListener(NamingUtils.getGroupedName(serviceName, groupName), StringUtils.join(clusters, ","),
-                        listener);
+        String clustersString = StringUtils.join(clusters, ",");
+        changeNotifier.deregisterListener(groupName, serviceName, clustersString, listener);
+        if (!changeNotifier.isSubscribed(groupName, serviceName, clustersString)) {
+            clientProxy.unsubscribe(serviceName, groupName, clustersString);
+        }
     }
 
     @Override
     public ListView<String> getServicesOfServer(int pageNo, int pageSize) throws NacosException {
-        return serverProxy.getServiceList(pageNo, pageSize, Constants.DEFAULT_GROUP);
+        return getServicesOfServer(pageNo, pageSize, Constants.DEFAULT_GROUP);
     }
 
     @Override
@@ -723,28 +572,22 @@ public class NacosNamingService implements NamingService {
     @Override
     public ListView<String> getServicesOfServer(int pageNo, int pageSize, String groupName, AbstractSelector selector)
             throws NacosException {
-        return serverProxy.getServiceList(pageNo, pageSize, groupName, selector);
+        return clientProxy.getServiceList(pageNo, pageSize, groupName, selector);
     }
 
     @Override
     public List<ServiceInfo> getSubscribeServices() {
-        return eventDispatcher.getSubscribeServices();
+        return changeNotifier.getSubscribeServices();
     }
 
     @Override
     public String getServerStatus() {
-        return serverProxy.serverHealthy() ? "UP" : "DOWN";
-    }
-
-    public BeatReactor getBeatReactor() {
-        return beatReactor;
+        return clientProxy.serverHealthy() ? "UP" : "DOWN";
     }
 
     @Override
     public void shutDown() throws NacosException {
-        beatReactor.shutdown();
-        eventDispatcher.shutdown();
-        hostReactor.shutdown();
-        serverProxy.shutdown();
+        serviceInfoHolder.shutdown();
+        clientProxy.shutdown();
     }
 }

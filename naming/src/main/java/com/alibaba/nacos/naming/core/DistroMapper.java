@@ -75,12 +75,12 @@ public class DistroMapper extends MemberChangeListener {
     }
 
     /**
-     * Judge whether current server is responsible for input service.
+     * Judge whether current server is responsible for input tag.
      * 是否由本地节点执行操作
-     * @param serviceName service name
+     * @param responsibleTag responsible tag, serviceName for v1 and ip:port for v2
      * @return true if input service is response, otherwise false
      */
-    public boolean responsible(String serviceName) {
+    public boolean responsible(String responsibleTag) {
         final List<String> servers = healthyList;
 
         if (!switchDomain.isDistroEnabled() || ApplicationUtils.getStandaloneMode()) {
@@ -105,7 +105,7 @@ public class DistroMapper extends MemberChangeListener {
         /**
          * 使用healthyList中的target位置的nacos处理当前请求
          */
-        int target = distroHash(serviceName) % servers.size();
+        int target = distroHash(responsibleTag) % servers.size();
         /**
          * 通常在healthyList   当前节点只会出现一次
          * 所以只有 target == index == lastIndex时  才会返回true   即用当前节点处理请求
@@ -115,12 +115,12 @@ public class DistroMapper extends MemberChangeListener {
     }
 
     /**
-     * Calculate which other server response input service.
+     * Calculate which other server response input tag.
      * 根据serviceName对应的hash
-     * @param serviceName service name
+     * @param responsibleTag responsible tag, serviceName for v1 and ip:port for v2
      * @return server which response input service
      */
-    public String mapSrv(String serviceName) {
+    public String mapSrv(String responsibleTag) {
         final List<String> servers = healthyList;
 
         if (CollectionUtils.isEmpty(servers) || !switchDomain.isDistroEnabled()) {
@@ -131,7 +131,7 @@ public class DistroMapper extends MemberChangeListener {
             /**
              * 根据serviceName对应的hash  选择转发的节点
              */
-            int index = distroHash(serviceName) % servers.size();
+            int index = distroHash(responsibleTag) % servers.size();
             return servers.get(index);
         } catch (Throwable e) {
             Loggers.SRV_LOG.warn("[NACOS-DISTRO] distro mapper failed, return localhost: " + ApplicationUtils
@@ -144,8 +144,8 @@ public class DistroMapper extends MemberChangeListener {
      * @param serviceName
      * @return
      */
-    private int distroHash(String serviceName) {
-        return Math.abs(serviceName.hashCode() % Integer.MAX_VALUE);
+    private int distroHash(String responsibleTag) {
+        return Math.abs(responsibleTag.hashCode() % Integer.MAX_VALUE);
     }
 
     @Override

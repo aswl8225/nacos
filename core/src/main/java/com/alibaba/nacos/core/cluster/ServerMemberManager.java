@@ -16,6 +16,7 @@
 
 package com.alibaba.nacos.core.cluster;
 
+import com.alibaba.nacos.api.ability.ServerAbilities;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.common.JustForTest;
 import com.alibaba.nacos.common.http.Callback;
@@ -81,6 +82,8 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
     private final NacosAsyncRestTemplate asyncRestTemplate = HttpClientBeanHolder
             .getNacosAsyncRestTemplate(Loggers.CORE);
     
+    private static boolean isUseAddressServer = false;
+    
     /**
      * Cluster node list.
      */
@@ -89,7 +92,7 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
     /**
      * Is this node in the cluster list.
      */
-    private volatile boolean isInIpList = true;
+    private static volatile boolean isInIpList = true;
     
     /**
      * port.
@@ -134,6 +137,10 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
         this.localAddress = InetUtils.getSelfIP() + ":" + port;
         this.self = MemberUtil.singleParse(this.localAddress);
         this.self.setExtendVal(MemberMetaDataConstants.VERSION, VersionUtils.version);
+        
+        // init abilities.
+        this.self.setAbilities(initMemberAbilities());
+        
         serverList.put(self.getAddress(), self);
         
         // register NodeChangeEvent publisher to NotifyManager
@@ -149,13 +156,27 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
         Loggers.CORE.info("The cluster resource is initialized");
     }
     
+    private ServerAbilities initMemberAbilities() {
+        ServerAbilities serverAbilities = new ServerAbilities();
+        serverAbilities.getRemoteAbility().setSupportRemoteConnection(true);
+        return serverAbilities;
+    }
+    
     private void initAndStartLookup() throws NacosException {
         this.lookup = LookupFactory.createLookUp(this);
+        isUseAddressServer = this.lookup.useAddressServer();
         this.lookup.start();
     }
     
+    /**
+     * switch look up.
+     *
+     * @param name look up name.
+     * @throws NacosException exception.
+     */
     public void switchLookup(String name) throws NacosException {
         this.lookup = LookupFactory.switchLookup(name, this);
+        isUseAddressServer = this.lookup.useAddressServer();
         this.lookup.start();
     }
     
@@ -189,6 +210,10 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
                 return InetUtils.IPChangeEvent.class;
             }
         });
+    }
+    
+    public static boolean isUseAddressServer() {
+        return isUseAddressServer;
     }
     
     /**
@@ -244,6 +269,22 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
             }
         }
         return result;
+    }
+    
+    public List<String> getServerListUnhealth() {
+        List<String> unhealthyMembers = new ArrayList<>();
+        for (Member member : this.allMembers()) {
+            NodeState state = member.getState();
+            if (state.equals(NodeState.DOWN)) {
+                unhealthyMembers.add(member.getAddress());
+            }
+            
+        }
+        return unhealthyMembers;
+    }
+    
+    public MemberLookup getLookup() {
+        return lookup;
     }
     
     public Member getSelf() {
@@ -305,8 +346,18 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
         for (Member member : members) {
             final String address = member.getAddress();
             
-            if (!serverList.containsKey(address)) {
+            Member existMember = serverList.get(address);
+            if (existMember == null) {
                 hasChange = true;
+                // If the cluster information in cluster.conf or address-server has been changed,
+                // while the corresponding nacos-server has not been started yet, the member's state
+                // should be set to DOWN. If the corresponding nacos-server has been started, the
+                // member's state will be set to UP after detection in a few seconds.
+                member.setState(NodeState.DOWN);
+                tmpMap.put(address, member);
+            } else {
+                //to keep extendInfo and abilities that report dynamically.
+                tmpMap.put(address, existMember);
             }
             
             // Ensure that the node is created only once
@@ -424,7 +475,7 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
         return Collections.unmodifiableMap(serverList);
     }
     
-    public boolean isInIpList() {
+    public static boolean isInIpList() {
         return isInIpList;
     }
     
@@ -466,6 +517,18 @@ public class ServerMemberManager implements ApplicationListener<WebServerInitial
                                             Loggers.CLUSTER
                                                     .warn("{} version is too low, it is recommended to upgrade the version : {}",
                                                             target, VersionUtils.version);
+                                            Member memberNew = target.copy();
+                                            if (memberNew.getAbilities() != null
+                                                    && memberNew.getAbilities().getRemoteAbility() != null && memberNew
+                                                    .getAbilities().getRemoteAbility().isSupportRemoteConnection()) {
+                                                memberNew.getAbilities().getRemoteAbility()
+                                                        .setSupportRemoteConnection(false);
+                                                Loggers.CLUSTER
+                                                        .warn("{} : Clear support remote connection flag,target may rollback version ",
+                                                                memberNew);
+                                                
+                                                update(memberNew);
+                                            }
                                             return;
                                         }
                                         if (result.ok()) {

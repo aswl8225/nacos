@@ -20,7 +20,7 @@ import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.pojo.ServiceInfo;
 import com.alibaba.nacos.client.naming.cache.ConcurrentDiskUtil;
 import com.alibaba.nacos.client.naming.cache.DiskCache;
-import com.alibaba.nacos.client.naming.core.HostReactor;
+import com.alibaba.nacos.client.naming.cache.ServiceInfoHolder;
 import com.alibaba.nacos.client.naming.utils.CollectionUtils;
 import com.alibaba.nacos.client.naming.utils.UtilAndComs;
 import com.alibaba.nacos.common.lifecycle.Closeable;
@@ -54,7 +54,7 @@ public class FailoverReactor implements Closeable {
 
     private final String failoverDir;
 
-    private final HostReactor hostReactor;
+    private final ServiceInfoHolder serviceInfoHolder;
 
     private final ScheduledExecutorService executorService;
     /**
@@ -62,8 +62,8 @@ public class FailoverReactor implements Closeable {
      * @param hostReactor
      * @param cacheDir
      */
-    public FailoverReactor(HostReactor hostReactor, String cacheDir) {
-        this.hostReactor = hostReactor;
+    public FailoverReactor(ServiceInfoHolder serviceInfoHolder, String cacheDir) {
+        this.serviceInfoHolder = serviceInfoHolder;
         /**
          * 容错路径  C:\Users\Administrator/nacos/naming/quickStart/failover
          */
@@ -311,7 +311,7 @@ public class FailoverReactor implements Closeable {
 
         @Override
         public void run() {
-            Map<String, ServiceInfo> map = hostReactor.getServiceInfoMap();
+            Map<String, ServiceInfo> map = serviceInfoHolder.getServiceInfoMap();
             for (Map.Entry<String, ServiceInfo> entry : map.entrySet()) {
                 ServiceInfo serviceInfo = entry.getValue();
                 /**
