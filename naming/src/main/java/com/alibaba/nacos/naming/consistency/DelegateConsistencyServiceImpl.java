@@ -13,29 +13,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacos.naming.consistency;
 
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.naming.consistency.ephemeral.EphemeralConsistencyService;
-import com.alibaba.nacos.naming.consistency.persistent.PersistentConsistencyService;
+import com.alibaba.nacos.naming.consistency.persistent.PersistentConsistencyServiceDelegateImpl;
 import com.alibaba.nacos.naming.pojo.Record;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 /**
- * Consistency delegate
+ * Consistency delegate.
  *
  * @author nkorange
  * @since 1.0.0
  */
+@DependsOn("ProtocolManager")
 @Service("consistencyDelegate")
 public class DelegateConsistencyServiceImpl implements ConsistencyService {
 
-    @Autowired
-    private PersistentConsistencyService persistentConsistencyService;
+    private final PersistentConsistencyServiceDelegateImpl persistentConsistencyService;
 
-    @Autowired
-    private EphemeralConsistencyService ephemeralConsistencyService;
+    private final EphemeralConsistencyService ephemeralConsistencyService;
+
+    public DelegateConsistencyServiceImpl(PersistentConsistencyServiceDelegateImpl persistentConsistencyService,
+            EphemeralConsistencyService ephemeralConsistencyService) {
+        this.persistentConsistencyService = persistentConsistencyService;
+        this.ephemeralConsistencyService = ephemeralConsistencyService;
+    }
 
     @Override
     public void put(String key, Record value) throws NacosException {
@@ -46,7 +54,6 @@ public class DelegateConsistencyServiceImpl implements ConsistencyService {
     public void remove(String key) throws NacosException {
         mapConsistencyService(key).remove(key);
     }
-
     /**
      * 获取key对应得Datum
      * @param key key of data
@@ -78,8 +85,8 @@ public class DelegateConsistencyServiceImpl implements ConsistencyService {
     }
 
     @Override
-    public void unlisten(String key, RecordListener listener) throws NacosException {
-        mapConsistencyService(key).unlisten(key, listener);
+    public void unListen(String key, RecordListener listener) throws NacosException {
+        mapConsistencyService(key).unListen(key, listener);
     }
 
     @Override
@@ -87,6 +94,24 @@ public class DelegateConsistencyServiceImpl implements ConsistencyService {
         return ephemeralConsistencyService.isAvailable() && persistentConsistencyService.isAvailable();
     }
 
+    @Override
+    public Optional<String> getErrorMsg() {
+        String errorMsg;
+        if (ephemeralConsistencyService.getErrorMsg().isPresent()
+                && persistentConsistencyService.getErrorMsg().isPresent()) {
+            errorMsg = "'" + ephemeralConsistencyService.getErrorMsg().get() + "' in Distro protocol and '"
+                    + persistentConsistencyService.getErrorMsg().get() + "' in jRaft protocol";
+        } else if (ephemeralConsistencyService.getErrorMsg().isPresent()
+                && !persistentConsistencyService.getErrorMsg().isPresent()) {
+            errorMsg = ephemeralConsistencyService.getErrorMsg().get();
+        } else if (!ephemeralConsistencyService.getErrorMsg().isPresent()
+                && persistentConsistencyService.getErrorMsg().isPresent()) {
+            errorMsg = persistentConsistencyService.getErrorMsg().get();
+        } else {
+            errorMsg = null;
+        }
+        return Optional.ofNullable(errorMsg);
+    }
     /**
      * key对应的节点是临时的还是持久化的
      * @param key

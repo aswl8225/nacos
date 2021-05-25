@@ -13,34 +13,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacos.naming.healthcheck;
 
-
-import com.alibaba.fastjson.annotation.JSONField;
-import com.alibaba.nacos.naming.boot.SpringContext;
+import com.alibaba.nacos.naming.healthcheck.heartbeat.BeatProcessor;
+import com.alibaba.nacos.sys.utils.ApplicationUtils;
 import com.alibaba.nacos.naming.core.Cluster;
 import com.alibaba.nacos.naming.core.Instance;
 import com.alibaba.nacos.naming.core.Service;
 import com.alibaba.nacos.naming.misc.Loggers;
 import com.alibaba.nacos.naming.misc.UtilsAndCommons;
-import com.alibaba.nacos.naming.push.PushService;
+import com.alibaba.nacos.naming.push.UdpPushService;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Thread to update ephemeral instance triggered by client beat
+ * Thread to update ephemeral instance triggered by client beat for v1.x.
  *
  * @author nkorange
  */
-public class ClientBeatProcessor implements Runnable {
+public class ClientBeatProcessor implements BeatProcessor {
+
     public static final long CLIENT_BEAT_TIMEOUT = TimeUnit.SECONDS.toMillis(15);
+
     private RsInfo rsInfo;
+
     private Service service;
 
-    @JSONField(serialize = false)
-    public PushService getPushService() {
-        return SpringContext.getAppContext().getBean(PushService.class);
+    @JsonIgnore
+    public UdpPushService getPushService() {
+        return ApplicationUtils.getBean(UdpPushService.class);
     }
 
     public RsInfo getRsInfo() {
@@ -86,19 +90,19 @@ public class ClientBeatProcessor implements Runnable {
                  * 同时会在ServiceManager#updateIpAddresses方法中  更新到dataStore对应的Datum中
                  */
                 instance.setLastBeat(System.currentTimeMillis());
-                if (!instance.isMarked()) {
-                    if (!instance.isHealthy()) {
-                        /**
-                         * 设置instance为健康状态
-                         */
-                        instance.setHealthy(true);
-                        Loggers.EVT_LOG.info("service: {} {POS} {IP-ENABLED} valid: {}:{}@{}, region: {}, msg: client beat ok",
-                            cluster.getService().getName(), ip, port, cluster.getName(), UtilsAndCommons.LOCALHOST_SITE);
-                        /**
-                         * 发布ServiceChangeEvent
-                         */
-                        getPushService().serviceChanged(service);
-                    }
+                if (!instance.isMarked() && !instance.isHealthy()) {
+                    /**
+                     * 设置instance为健康状态
+                     */
+                    instance.setHealthy(true);
+                    Loggers.EVT_LOG
+                            .info("service: {} {POS} {IP-ENABLED} valid: {}:{}@{}, region: {}, msg: client beat ok",
+                                    cluster.getService().getName(), ip, port, cluster.getName(),
+                                    UtilsAndCommons.LOCALHOST_SITE);
+                    /**
+                     * 发布ServiceChangeEvent
+                     */
+                    getPushService().serviceChanged(service);
                 }
             }
         }

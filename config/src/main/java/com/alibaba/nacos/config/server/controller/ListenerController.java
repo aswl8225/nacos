@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacos.config.server.controller;
 
 import com.alibaba.nacos.config.server.constant.Constants;
@@ -32,60 +33,56 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Config longpolling
+ * Config longpolling.
  *
  * @author Nacos
  */
 @RestController
 @RequestMapping(Constants.LISTENER_CONTROLLER_PATH)
 public class ListenerController {
-
+    
     private final ConfigSubService configSubService;
-
+    
     @Autowired
     public ListenerController(ConfigSubService configSubService) {
         this.configSubService = configSubService;
     }
-
+    
     /**
-     * 获取客户端订阅配置信息
+     * Get subscribe information from client side.
      */
     @GetMapping
     public GroupkeyListenserStatus getAllSubClientConfigByIp(@RequestParam("ip") String ip,
-                                                             @RequestParam(value = "all", required = false) boolean all,
-                                                             @RequestParam(value = "tenant", required = false)
-                                                                 String tenant,
-                                                             @RequestParam(value = "sampleTime", required = false,
-                                                                 defaultValue = "1") int sampleTime, ModelMap modelMap)
-        throws Exception {
+            @RequestParam(value = "all", required = false) boolean all,
+            @RequestParam(value = "tenant", required = false) String tenant,
+            @RequestParam(value = "sampleTime", required = false, defaultValue = "1") int sampleTime, ModelMap modelMap)
+            throws Exception {
         SampleResult collectSampleResult = configSubService.getCollectSampleResultByIp(ip, sampleTime);
         GroupkeyListenserStatus gls = new GroupkeyListenserStatus();
         gls.setCollectStatus(200);
         Map<String, String> configMd5Status = new HashMap<String, String>(100);
-        if (collectSampleResult.getLisentersGroupkeyStatus() != null) {
-            Map<String, String> status = collectSampleResult.getLisentersGroupkeyStatus();
-            for (Map.Entry<String, String> config : status.entrySet()) {
-                if (!StringUtils.isBlank(tenant)) {
-                    if (config.getKey().contains(tenant)) {
-                        configMd5Status.put(config.getKey(), config.getValue());
-                    }
-                } else {
-                    // 默认值获取公共配置，如果想看所有配置，要加all
-                    if (all) {
-                        configMd5Status.put(config.getKey(), config.getValue());
-                    } else {
-                        String[] configKeys = GroupKey2.parseKey(config.getKey());
-                        if (StringUtils.isBlank(configKeys[2])) {
-                            configMd5Status.put(config.getKey(), config.getValue());
-                        }
-                    }
+        if (collectSampleResult.getLisentersGroupkeyStatus() == null) {
+            return gls;
+        }
+        Map<String, String> status = collectSampleResult.getLisentersGroupkeyStatus();
+        for (Map.Entry<String, String> config : status.entrySet()) {
+            if (!StringUtils.isBlank(tenant) && config.getKey().contains(tenant)) {
+                configMd5Status.put(config.getKey(), config.getValue());
+                continue;
+            }
+            // Get common config default value, if want to get all config, you need to add "all".
+            if (all) {
+                configMd5Status.put(config.getKey(), config.getValue());
+            } else {
+                String[] configKeys = GroupKey2.parseKey(config.getKey());
+                if (StringUtils.isBlank(configKeys[2])) {
+                    configMd5Status.put(config.getKey(), config.getValue());
                 }
             }
-            gls.setLisentersGroupkeyStatus(configMd5Status);
         }
-
+        gls.setLisentersGroupkeyStatus(configMd5Status);
         return gls;
     }
-
+    
 }
 
