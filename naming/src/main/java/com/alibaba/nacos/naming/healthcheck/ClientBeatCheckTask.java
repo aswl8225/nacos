@@ -118,10 +118,10 @@ public class ClientBeatCheckTask implements BeatCheckTask {
                              * 发布ServiceChangeEvent  udp通知？
                              */
                             getPushService().serviceChanged(service);
-                            /**
-                             * 发布InstanceHeartbeatTimeoutEvent   留待二次开发
-                             */
-                            SpringContext.getAppContext().publishEvent(new InstanceHeartbeatTimeoutEvent(this, instance));
+//                            /**
+//                             * 发布InstanceHeartbeatTimeoutEvent   留待二次开发
+//                             */
+//                            SpringContext.getAppContext().publishEvent(new InstanceHeartbeatTimeoutEvent(this, instance));
                         }
                     }
                 }

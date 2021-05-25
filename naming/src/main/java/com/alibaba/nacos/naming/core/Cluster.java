@@ -341,8 +341,8 @@ public class Cluster extends com.alibaba.nacos.api.naming.pojo.Cluster implement
     /**
      * 仅在a中的元素   且对应的ip:port在a和b中都有的Instance
      *
-     * @param a
-     * @param b
+     * @param newInstance
+     * @param oldInstance
      * @return
      */
     private List<Instance> updatedIps(Collection<Instance> newInstance, Collection<Instance> oldInstance) {
@@ -382,8 +382,8 @@ public class Cluster extends com.alibaba.nacos.api.naming.pojo.Cluster implement
         /**
          * 集合a中的元素  且在交集map中存在
          */
-        for (Instance instance : a) {
-            if (stringIPAddressMap.containsKey(instance.getIp() + ":" + instance.getPort())) {
+        for (Instance instance : newInstance) {
+            if (stringIpAddressMap.containsKey(instance.getIp() + ":" + instance.getPort())) {
                 /**
                  * 在a和b中都存在
                  */
@@ -423,8 +423,6 @@ public class Cluster extends com.alibaba.nacos.api.naming.pojo.Cluster implement
     }
     /**
      * ip:port  仅在a中有   在b中没有的Instance集合
-     * @param a
-     * @param b
      * @return
      */
     private List<Instance> subtract(Collection<Instance> oldIp, Collection<Instance> ips) {

@@ -195,11 +195,10 @@ public class DiskUtil {
      * Clear all config file.
      */
     public static void clearAll() {
-        tic public void clearAll() {
-            /**
-             * 删除C:\Users\Administrator\nacos\data\config-data
-             */
-            File file = new File(EnvUtil.getNacosHome(), BASE_DIR);
+        /**
+         * 删除C:\Users\Administrator\nacos\data\config-data
+         */
+        File file = new File(EnvUtil.getNacosHome(), BASE_DIR);
         if (FileUtils.deleteQuietly(file)) {
             LogUtil.DEFAULT_LOG.info("clear all config-info success.");
         } else {

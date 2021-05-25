@@ -84,6 +84,6 @@ public class NamingExample {
         });
 
 
-        Thread.sleep(Integer.MAX_VALUE);
+//        Thread.sleep(Integer.MAX_VALUE);
     }
 }
