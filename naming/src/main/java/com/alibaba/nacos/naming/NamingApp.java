@@ -16,6 +16,7 @@
 
 package com.alibaba.nacos.naming;
 
+import com.alibaba.nacos.sys.env.Constants;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -31,7 +32,9 @@ public class NamingApp {
     
     public static void main(String[] args) {
 
-        System.setProperty("nacos.server.ip", "192.168.50.39");
+        System.setProperty("nacos.server.ip", "localhost");
+        System.setProperty(Constants.STANDALONE_MODE_PROPERTY_NAME, "true");
+
         SpringApplication.run(NamingApp.class, args);
     }
 }
