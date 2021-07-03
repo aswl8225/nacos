@@ -73,14 +73,23 @@ public class ServerListManager implements ServerListFactory, Closeable {
     private long lastServerListRefreshTime = 0L;
     
     public ServerListManager(Properties properties) {
+        /**
+         * 获取nacos集群地址
+         */
         initServerAddr(properties);
         if (!serverList.isEmpty()) {
+            /**
+             * 随机抽取一个
+             */
             currentIndex.set(new Random().nextInt(serverList.size()));
         }
     }
     
     private void initServerAddr(Properties properties) {
         this.endpoint = InitUtils.initEndpoint(properties);
+        /**
+         * nacos集群动态地址
+         */
         if (StringUtils.isNotEmpty(endpoint)) {
             this.serversFromEndpoint = getServerListFromEndpoint();
             refreshServerListExecutor = new ScheduledThreadPoolExecutor(1,
@@ -89,9 +98,15 @@ public class ServerListManager implements ServerListFactory, Closeable {
                     .scheduleWithFixedDelay(this::refreshServerListIfNeed, 0, refreshServerListInternal,
                             TimeUnit.MILLISECONDS);
         } else {
+            /**
+             * 固定地址   配置文件中指定
+             */
             String serverListFromProps = properties.getProperty(PropertyKeyConst.SERVER_ADDR);
             if (StringUtils.isNotEmpty(serverListFromProps)) {
                 this.serverList.addAll(Arrays.asList(serverListFromProps.split(",")));
+                /**
+                 * standalone
+                 */
                 if (this.serverList.size() == 1) {
                     this.nacosDomain = serverListFromProps;
                 }

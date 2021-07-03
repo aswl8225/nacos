@@ -66,8 +66,14 @@ public class NamingClientProxyDelegate implements NamingClientProxy {
     
     public NamingClientProxyDelegate(String namespace, ServiceInfoHolder serviceInfoHolder, Properties properties,
             InstancesChangeNotifier changeNotifier) throws NacosException {
+        /**
+         * 实例化serviceInfoUpdateService  并初始化线程
+         */
         this.serviceInfoUpdateService = new ServiceInfoUpdateService(properties, serviceInfoHolder, this,
                 changeNotifier);
+        /**
+         * 获取nacos集群地址
+         */
         this.serverListManager = new ServerListManager(properties);
         this.serviceInfoHolder = serviceInfoHolder;
         this.securityProxy = new SecurityProxy(properties, NamingHttpClientManager.getInstance().getNacosRestTemplate());
