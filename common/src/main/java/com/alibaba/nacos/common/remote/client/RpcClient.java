@@ -355,6 +355,9 @@ public abstract class RpcClient implements Closeable {
         });
         
         //connect to server ,try to connect to server sync once, async starting if fail.
+        /**
+         * 连接服务器，尝试同步一次，如果失败异步启动。
+         */
         Connection connectToServer = null;
         rpcClientStatus.set(RpcClientStatus.STARTING);
 
@@ -397,13 +400,19 @@ public abstract class RpcClient implements Closeable {
             eventLinkedBlockingQueue.offer(new ConnectionEvent(ConnectionEvent.CONNECTED));
         } else {
             /**
-             * 链接失败   执行ReconnectContext
+             * 链接失败   执行ReconnectContext  异步链接
              */
             switchServerAsync();
         }
-        
+
+        /**
+         * 注册ConnectResetRequestHandler用于处理nacos server推送的重置连接请求
+         */
         registerServerRequestHandler(new ConnectResetRequestHandler());
-        
+
+        /**
+         * 注册ConnectResetRequestHandler用于处理nacos server推送的重置连接请求
+         */
         //register client detection request.
         registerServerRequestHandler(new ServerRequestHandler() {
             @Override

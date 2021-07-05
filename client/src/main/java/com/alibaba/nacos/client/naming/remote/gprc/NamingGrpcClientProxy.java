@@ -99,8 +99,17 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
      */
     private void start(ServerListFactory serverListFactory, ServiceInfoHolder serviceInfoHolder) throws NacosException {
         rpcClient.serverListFactory(serverListFactory);
+        /**
+         * 启动
+         */
         rpcClient.start();
+        /**
+         * 注册ServerRequestHandler   用于处理从Nacos Push到Client的请求
+         */
         rpcClient.registerServerRequestHandler(new NamingPushRequestHandler(serviceInfoHolder));
+        /**
+         * 注册ConnectionEventListener   连接建立和断开时处理事件
+         */
         rpcClient.registerConnectionListener(namingGrpcConnectionEventListener);
     }
     
