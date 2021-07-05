@@ -247,7 +247,7 @@ public abstract class RpcClient implements Closeable {
      * Start this client.
      */
     public final void start() throws NacosException {
-        
+        //设置rpcClientStatus为STARTING
         boolean success = rpcClientStatus.compareAndSet(RpcClientStatus.INITIALIZED, RpcClientStatus.STARTING);
         if (!success) {
             return;
@@ -264,6 +264,9 @@ public abstract class RpcClient implements Closeable {
         });
         
         // connection event consumer.
+        /**
+         * CONNECTED || DISCONNECTED
+         */
         clientEventExecutor.submit(new Runnable() {
             @Override
             public void run() {
@@ -272,8 +275,14 @@ public abstract class RpcClient implements Closeable {
                     try {
                         take = eventLinkedBlockingQueue.take();
                         if (take.isConnected()) {
+                            /**
+                             * 链接
+                             */
                             notifyConnected();
                         } else if (take.isDisConnected()) {
+                            /**
+                             * 关闭
+                             */
                             notifyDisConnected();
                         }
                     } catch (Throwable e) {
@@ -282,7 +291,10 @@ public abstract class RpcClient implements Closeable {
                 }
             }
         });
-        
+
+        /**
+         *
+         */
         clientEventExecutor.submit(new Runnable() {
             @Override
             public void run() {
@@ -345,16 +357,26 @@ public abstract class RpcClient implements Closeable {
         //connect to server ,try to connect to server sync once, async starting if fail.
         Connection connectToServer = null;
         rpcClientStatus.set(RpcClientStatus.STARTING);
-        
+
+        //重试次数
         int startUpRetryTimes = RETRY_TIMES;
+        /**
+         * 在重试策略下   常见nacos中某一节点的Connection
+         */
         while (startUpRetryTimes > 0 && connectToServer == null) {
             try {
                 startUpRetryTimes--;
+                /**
+                 * 获取nacos集群内某一节点的地址
+                 */
                 ServerInfo serverInfo = nextRpcServer();
                 
                 LoggerUtils.printIfInfoEnabled(LOGGER, "[{}] Try to connect to server on start up, server: {}", name,
                         serverInfo);
-                
+
+                /**
+                 * 链接nacos
+                 */
                 connectToServer = connectToServer(serverInfo);
             } catch (Throwable e) {
                 LoggerUtils.printIfWarnEnabled(LOGGER,
@@ -369,8 +391,14 @@ public abstract class RpcClient implements Closeable {
                     name, connectToServer.serverInfo.getAddress(), connectToServer.getConnectionId());
             this.currentConnection = connectToServer;
             rpcClientStatus.set(RpcClientStatus.RUNNING);
+            /**
+             * 注入eventLinkedBlockingQueue   链接事件
+             */
             eventLinkedBlockingQueue.offer(new ConnectionEvent(ConnectionEvent.CONNECTED));
         } else {
+            /**
+             * 链接失败   执行ReconnectContext
+             */
             switchServerAsync();
         }
         
@@ -387,6 +415,10 @@ public abstract class RpcClient implements Closeable {
                 return null;
             }
         });
+
+        /**
+         * shutdown
+         */
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
@@ -414,6 +446,9 @@ public abstract class RpcClient implements Closeable {
                         if (isRunning()) {
                             ConnectResetRequest connectResetRequest = (ConnectResetRequest) request;
                             if (StringUtils.isNotBlank(connectResetRequest.getServerIp())) {
+                                /**
+                                 * 解析nacos地址
+                                 */
                                 ServerInfo serverInfo = resolveServerInfo(
                                         connectResetRequest.getServerIp() + Constants.COLON + connectResetRequest
                                                 .getServerPort());
@@ -880,6 +915,7 @@ public abstract class RpcClient implements Closeable {
     
     /**
      * resolve server info.
+     * 将serverAddress解析为ServerInfo
      *
      * @param serverAddress address.
      * @return

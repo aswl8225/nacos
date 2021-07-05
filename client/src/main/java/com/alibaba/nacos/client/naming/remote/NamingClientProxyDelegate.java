@@ -77,9 +77,18 @@ public class NamingClientProxyDelegate implements NamingClientProxy {
         this.serverListManager = new ServerListManager(properties);
         this.serviceInfoHolder = serviceInfoHolder;
         this.securityProxy = new SecurityProxy(properties, NamingHttpClientManager.getInstance().getNacosRestTemplate());
+        /**
+         * 定时打卡集群内各节点
+         */
         initSecurityProxy();
+        /**
+         * http
+         */
         this.httpClientProxy = new NamingHttpClientProxy(namespace, securityProxy, serverListManager, properties,
                 serviceInfoHolder);
+        /**
+         * grpc
+         */
         this.grpcClientProxy = new NamingGrpcClientProxy(namespace, securityProxy, serverListManager, properties,
                 serviceInfoHolder);
     }

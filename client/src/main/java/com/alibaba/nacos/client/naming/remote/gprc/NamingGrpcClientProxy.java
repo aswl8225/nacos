@@ -80,11 +80,23 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
         Map<String, String> labels = new HashMap<String, String>();
         labels.put(RemoteConstants.LABEL_SOURCE, RemoteConstants.LABEL_SOURCE_SDK);
         labels.put(RemoteConstants.LABEL_MODULE, RemoteConstants.LABEL_MODULE_NAMING);
+        /**
+         * 实例化
+         */
         this.rpcClient = RpcClientFactory.createClient(uuid, ConnectionType.GRPC, labels);
         this.namingGrpcConnectionEventListener = new NamingGrpcConnectionEventListener(this);
+        /**
+         * 启动
+         */
         start(serverListFactory, serviceInfoHolder);
     }
-    
+
+    /**
+     * 启动
+     * @param serverListFactory
+     * @param serviceInfoHolder
+     * @throws NacosException
+     */
     private void start(ServerListFactory serverListFactory, ServiceInfoHolder serviceInfoHolder) throws NacosException {
         rpcClient.serverListFactory(serverListFactory);
         rpcClient.start();

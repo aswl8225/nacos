@@ -245,7 +245,12 @@ public abstract class GrpcClient extends RpcClient {
                     response.getRequestId());
         }
     }
-    
+
+    /**
+     * 链接nacos
+     * @param serverInfo server address to connect.
+     * @return
+     */
     @Override
     public Connection connectToServer(ServerInfo serverInfo) {
         try {
