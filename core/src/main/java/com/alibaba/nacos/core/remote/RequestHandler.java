@@ -55,6 +55,9 @@ public abstract class RequestHandler<T extends Request, S extends Response> {
             }
             
         }
+        /**
+         * 处理客户端grc请求
+         */
         return handle(request, meta);
     }
     

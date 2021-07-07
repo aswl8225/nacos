@@ -59,12 +59,18 @@ public class ServiceInfoHolder implements Closeable {
     private String cacheDir;
     
     public ServiceInfoHolder(String namespace, Properties properties) {
+        /**
+         * 缓存文件
+         */
         initCacheDir(namespace, properties);
         if (isLoadCacheAtStart(properties)) {
             this.serviceInfoMap = new ConcurrentHashMap<String, ServiceInfo>(DiskCache.read(this.cacheDir));
         } else {
             this.serviceInfoMap = new ConcurrentHashMap<String, ServiceInfo>(16);
         }
+        /**
+         * 容错
+         */
         this.failoverReactor = new FailoverReactor(this, cacheDir);
         this.pushEmptyProtection = isPushEmptyProtect(properties);
     }

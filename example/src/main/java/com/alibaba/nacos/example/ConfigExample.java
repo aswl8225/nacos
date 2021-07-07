@@ -32,8 +32,8 @@ import com.alibaba.nacos.api.exception.NacosException;
 public class ConfigExample {
 
     public static void main(String[] args) throws NacosException, InterruptedException {
-        String serverAddr = "192.168.50.39:8848";
-        String dataId = "test";
+        String serverAddr = "121.89.241.215:8848";
+        String dataId = "test11";
         String group = "DEFAULT_GROUP";
         Properties properties = new Properties();
         properties.put("serverAddr", serverAddr);
@@ -57,26 +57,26 @@ public class ConfigExample {
             }
         });
 
-        /**
-         * 监听
-         */
-        configService.addListener("21342432", group, new Listener() {
-            @Override
-            public void receiveConfigInfo(String configInfo) {
-                System.out.println("receive:" + configInfo);
-            }
-
-            @Override
-            public Executor getExecutor() {
-                return null;
-            }
-        });
-
-        /**
-         * 修改配置
-         */
-        boolean isPublishOk = configService.publishConfig(dataId, group, "content132132132132");
-        System.out.println(isPublishOk);
+//        /**
+//         * 监听
+//         */
+//        configService.addListener("21342432", group, new Listener() {
+//            @Override
+//            public void receiveConfigInfo(String configInfo) {
+//                System.out.println("receive:" + configInfo);
+//            }
+//
+//            @Override
+//            public Executor getExecutor() {
+//                return null;
+//            }
+//        });
+//
+//        /**
+//         * 修改配置
+//         */
+//        boolean isPublishOk = configService.publishConfig(dataId, group, "content132132132132");
+//        System.out.println(isPublishOk);
 
 //        Thread.sleep(3000);
 //        content = configService.getConfig(dataId, group, 5000);

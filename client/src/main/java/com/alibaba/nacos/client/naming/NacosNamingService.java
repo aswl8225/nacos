@@ -94,6 +94,9 @@ public class NacosNamingService implements NamingService {
         this.changeNotifier = new InstancesChangeNotifier();
         NotifyCenter.registerToPublisher(InstancesChangeEvent.class, 16384);
         NotifyCenter.registerSubscriber(changeNotifier);
+        /**
+         * 缓存 容错文件
+         */
         this.serviceInfoHolder = new ServiceInfoHolder(namespace, properties);
         this.clientProxy = new NamingClientProxyDelegate(this.namespace, serviceInfoHolder, properties, changeNotifier);
     }

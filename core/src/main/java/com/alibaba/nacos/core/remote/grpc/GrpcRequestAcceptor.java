@@ -165,6 +165,11 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
             requestMeta.setClientVersion(connection.getMetaInfo().getVersion());
             requestMeta.setLabels(connection.getMetaInfo().getLabels());
             connectionManager.refreshActiveTime(requestMeta.getConnectionId());
+            /**
+             * grpc通讯  处理逻辑
+             * grpc通讯  处理逻辑
+             * grpc通讯  处理逻辑
+             */
             Response response = requestHandler.handleRequest(request, requestMeta);
             Payload payloadResponse = GrpcUtils.convert(response);
             traceIfNecessary(payloadResponse, false);

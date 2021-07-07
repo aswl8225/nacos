@@ -76,7 +76,10 @@ public class RequestHandlerRegistry implements ApplicationListener<ContextRefres
             if (skip) {
                 continue;
             }
-            
+
+            /**
+             * 处理@TpsControl   ？？？？
+             */
             try {
                 Method method = clazz.getMethod("handle", Request.class, RequestMeta.class);
                 if (method.isAnnotationPresent(TpsControl.class) && TpsControlConfig.isTpsControlEnabled()) {
