@@ -306,7 +306,7 @@ public abstract class RpcClient implements Closeable {
                             //check alive time.
                             if (System.currentTimeMillis() - lastActiveTimeStamp >= keepAliveTime) {
                                 /**
-                                 * 健康检查  查看nacos节点是否可用
+                                 * 健康检查  查看nacos节点是否可用    3000ms超时
                                  */
                                 boolean isHealthy = healthCheck();
                                 /**

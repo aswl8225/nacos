@@ -108,7 +108,7 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
          */
         rpcClient.registerServerRequestHandler(new NamingPushRequestHandler(serviceInfoHolder));
         /**
-         * 注册ConnectionEventListener   连接建立和断开时处理事件
+         * 注册ConnectionEventListener   处理  rpcClient.start();  中的CONNECTED || DISCONNECTED
          */
         rpcClient.registerConnectionListener(namingGrpcConnectionEventListener);
     }
