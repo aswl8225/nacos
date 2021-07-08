@@ -141,6 +141,9 @@ public abstract class GrpcClient extends RpcClient {
             }
             ServerCheckRequest serverCheckRequest = new ServerCheckRequest();
             Payload grpcRequest = GrpcUtils.convert(serverCheckRequest);
+            /**
+             * serverCheck
+             */
             ListenableFuture<Payload> responseFuture = requestBlockingStub.request(grpcRequest);
             Payload response = responseFuture.get(3000L, TimeUnit.MILLISECONDS);
             //receive connection unregister response here,not check response is success.
@@ -263,11 +266,20 @@ public abstract class GrpcClient extends RpcClient {
                 grpcExecutor.allowCoreThreadTimeOut(true);
                 
             }
+            /**
+             * 创建nacos节点对应的grpc链接  8848--》9848
+             */
             RequestGrpc.RequestFutureStub newChannelStubTemp = createNewChannelStub(serverInfo.getServerIp(),
                     serverInfo.getServerPort() + rpcPortOffset());
             if (newChannelStubTemp != null) {
-                
+
+                /**
+                 * 向nacos节点发起serverCheck
+                 */
                 Response response = serverCheck(newChannelStubTemp);
+                /**
+                 * 链接失败
+                 */
                 if (response == null || !(response instanceof ServerCheckResponse)) {
                     shuntDownChannel((ManagedChannel) newChannelStubTemp.getChannel());
                     return null;

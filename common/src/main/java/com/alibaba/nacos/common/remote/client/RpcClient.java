@@ -293,7 +293,7 @@ public abstract class RpcClient implements Closeable {
         });
 
         /**
-         * 5秒一次  向服务端发送健康检查
+         * 每隔keepAliveTime（默认5s）  向服务端发送健康检查  检查nacos节点是否可用
          */
         clientEventExecutor.submit(new Runnable() {
             @Override
@@ -306,9 +306,12 @@ public abstract class RpcClient implements Closeable {
                             //check alive time.
                             if (System.currentTimeMillis() - lastActiveTimeStamp >= keepAliveTime) {
                                 /**
-                                 * 健康检查
+                                 * 健康检查  查看nacos节点是否可用
                                  */
                                 boolean isHealthy = healthCheck();
+                                /**
+                                 * 不可用
+                                 */
                                 if (!isHealthy) {
                                     if (currentConnection == null) {
                                         continue;
@@ -329,17 +332,29 @@ public abstract class RpcClient implements Closeable {
 
                         }
 
+                        /**
+                         * 验证reconnectContext.serverInfo对应的节点是否在nacos集群中
+                         */
                         if (reconnectContext.serverInfo != null) {
                             //clear recommend server if server is not in server list.
                             boolean serverExist = false;
                             for (String server : getServerListFactory().getServerList()) {
+                                /**
+                                 * 将地址信息解析为ServerInfo
+                                 */
                                 ServerInfo serverInfo = resolveServerInfo(server);
+                                /**
+                                 * 存在则跳出
+                                 */
                                 if (serverInfo.getServerIp().equals(reconnectContext.serverInfo.getServerIp())) {
                                     serverExist = true;
                                     reconnectContext.serverInfo.serverPort = serverInfo.serverPort;
                                     break;
                                 }
                             }
+                            /**
+                             * 不存在则执行reconnect
+                             */
                             if (!serverExist) {
                                 LoggerUtils.printIfInfoEnabled(LOGGER,
                                         "[{}] Recommend server is not in server list ,ignore recommend server {}", name,
@@ -349,6 +364,9 @@ public abstract class RpcClient implements Closeable {
 
                             }
                         }
+                        /**
+                         * 重新链接集群中其他nacos节点或当前节点
+                         */
                         reconnect(reconnectContext.serverInfo, reconnectContext.onRequestFail);
                     } catch (Throwable throwable) {
                         //Do nothing
@@ -392,6 +410,9 @@ public abstract class RpcClient implements Closeable {
 
         }
 
+        /**
+         * 链接成功
+         */
         if (connectToServer != null) {
             LoggerUtils.printIfInfoEnabled(LOGGER, "[{}] Success to connect to server [{}] on start up,connectionId={}",
                     name, connectToServer.serverInfo.getAddress(), connectToServer.getConnectionId());
@@ -528,6 +549,9 @@ public abstract class RpcClient implements Closeable {
         try {
 
             AtomicReference<ServerInfo> recommendServer = new AtomicReference<ServerInfo>(recommendServerInfo);
+            /**
+             * 健康检查有效
+             */
             if (onRequestFail && healthCheck()) {
                 LoggerUtils.printIfInfoEnabled(LOGGER, "[{}] Server check success,currentServer is{} ", name,
                         currentConnection.serverInfo.getAddress());
@@ -550,21 +574,39 @@ public abstract class RpcClient implements Closeable {
                 //1.get a new server
                 ServerInfo serverInfo = null;
                 try {
+                    /**
+                     * 重连集群中其他节点或当前节点
+                     */
                     serverInfo = recommendServer.get() == null ? nextRpcServer() : recommendServer.get();
                     //2.create a new channel to new server
+                    /**
+                     * 链接nacos节点
+                     */
                     Connection connectionNew = connectToServer(serverInfo);
+                    /**
+                     * 链接成功
+                     */
                     if (connectionNew != null) {
                         LoggerUtils.printIfInfoEnabled(LOGGER, "[{}] success to connect a server  [{}],connectionId={}",
                                 name, serverInfo.getAddress(), connectionNew.getConnectionId());
                         //successfully create a new connect.
+                        /**
+                         * 将原链接关闭
+                         */
                         if (currentConnection != null) {
                             LoggerUtils.printIfInfoEnabled(LOGGER,
                                     "[{}] Abandon prev connection ,server is  {}, connectionId is {}", name,
                                     currentConnection.serverInfo.getAddress(), currentConnection.getConnectionId());
                             //set current connection to enable connection event.
                             currentConnection.setAbandon(true);
+                            /**
+                             * 关闭  并通知DISCONNECTED
+                             */
                             closeConnection(currentConnection);
                         }
+                        /**
+                         * 新赋值
+                         */
                         currentConnection = connectionNew;
                         rpcClientStatus.set(RpcClientStatus.RUNNING);
                         switchSuccess = true;
@@ -585,6 +627,9 @@ public abstract class RpcClient implements Closeable {
                     recommendServer.set(null);
                 }
 
+                /**
+                 * 每轮   即nacos集群中的所有节点都重试一遍后   retryTurns++
+                 */
                 if (reConnectTimes > 0
                         && reConnectTimes % RpcClient.this.serverListFactory.getServerList().size() == 0) {
                     LoggerUtils.printIfInfoEnabled(LOGGER,
@@ -600,8 +645,14 @@ public abstract class RpcClient implements Closeable {
                 reConnectTimes++;
 
                 try {
+                    /**
+                     * 休息    重连其他nacos节点
+                     */
                     //sleep x milliseconds to switch next server.
                     if (!isRunning()) {
+                        /**
+                         * 第一轮   从100ms开始  每次增加100ms   最多到5s
+                         */
                         // first round ,try servers at a delay 100ms;second round ,200ms; max delays 5s. to be reconsidered.
                         Thread.sleep(Math.min(retryTurns + 1, 50) * 100L);
                     }
