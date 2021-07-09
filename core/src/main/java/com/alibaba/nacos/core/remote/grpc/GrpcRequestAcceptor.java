@@ -91,6 +91,9 @@ public class GrpcRequestAcceptor extends RequestGrpc.RequestImplBase {
         if (ServerCheckRequest.class.getSimpleName().equals(type)) {
             Payload serverCheckResponseP = GrpcUtils.convert(new ServerCheckResponse(CONTEXT_KEY_CONN_ID.get()));
             traceIfNecessary(serverCheckResponseP, false);
+            /**
+             * ServerCallStreamObserverImpl   grpc逻辑
+             */
             responseObserver.onNext(serverCheckResponseP);
             responseObserver.onCompleted();
             return;

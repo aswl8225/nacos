@@ -119,6 +119,9 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
                 instance);
         InstanceRequest request = new InstanceRequest(namespaceId, serviceName, groupName,
                 NamingRemoteConstants.REGISTER_INSTANCE, instance);
+        /**
+         * 注册
+         */
         requestToServer(request, Response.class);
         namingGrpcConnectionEventListener.cacheInstanceForRedo(serviceName, groupName, instance);
     }
@@ -213,13 +216,27 @@ public class NamingGrpcClientProxy extends AbstractNamingClientProxy {
     public boolean serverHealthy() {
         return rpcClient.isRunning();
     }
-    
+
+    /**
+     * 访问nacos服务端
+     * @param request
+     * @param responseClass
+     * @param <T>
+     * @return
+     * @throws NacosException
+     */
     private <T extends Response> T requestToServer(AbstractNamingRequest request, Class<T> responseClass)
             throws NacosException {
         try {
+            /**
+             * token和ak sk
+             */
             request.putAllHeader(getSecurityHeaders());
             request.putAllHeader(getSpasHeaders(
                     NamingUtils.getGroupedNameOptional(request.getServiceName(), request.getGroupName())));
+            /**
+             * 访问nacos服务端
+             */
             Response response =
                     requestTimeout < 0 ? rpcClient.request(request) : rpcClient.request(request, requestTimeout);
             if (ResponseCode.SUCCESS.getCode() != response.getResultCode()) {

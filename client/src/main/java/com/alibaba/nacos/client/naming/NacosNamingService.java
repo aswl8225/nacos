@@ -98,6 +98,9 @@ public class NacosNamingService implements NamingService {
          * 缓存 容错文件
          */
         this.serviceInfoHolder = new ServiceInfoHolder(namespace, properties);
+        /**
+         * 启动
+         */
         this.clientProxy = new NamingClientProxyDelegate(this.namespace, serviceInfoHolder, properties, changeNotifier);
     }
 
@@ -167,6 +170,9 @@ public class NacosNamingService implements NamingService {
         instance.setPort(port);
         instance.setWeight(1.0);
         instance.setClusterName(clusterName);
+        /**
+         * 注册
+         */
         registerInstance(serviceName, groupName, instance);
     }
 

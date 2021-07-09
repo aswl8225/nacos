@@ -529,14 +529,25 @@ public abstract class RpcClient implements Closeable {
         return false;
     }
 
+    /**
+     * 执行ReconnectContext
+     */
     public void switchServerAsyncOnRequestFail() {
         switchServerAsync(null, true);
     }
 
+    /**
+     * 执行ReconnectContext
+     */
     public void switchServerAsync() {
         switchServerAsync(null, false);
     }
 
+    /**
+     * 执行ReconnectContext
+     * @param recommendServerInfo
+     * @param onRequestFail
+     */
     protected void switchServerAsync(final ServerInfo recommendServerInfo, boolean onRequestFail) {
         reconnectionSignal.offer(new ReconnectContext(recommendServerInfo, onRequestFail));
     }
@@ -724,6 +735,10 @@ public abstract class RpcClient implements Closeable {
         Response response = null;
         Exception exceptionThrow = null;
         long start = System.currentTimeMillis();
+        /**
+         * 重试策略
+         * 在timeoutMills时间内最多RETRY_TIMES次
+         */
         while (retryTimes < RETRY_TIMES && System.currentTimeMillis() < timeoutMills + start) {
             boolean waitReconnect = false;
             try {
@@ -732,11 +747,17 @@ public abstract class RpcClient implements Closeable {
                     throw new NacosException(NacosException.CLIENT_DISCONNECT,
                             "Client not connected,current status:" + rpcClientStatus.get());
                 }
+                /**
+                 * 请求nacos服务端
+                 */
                 response = this.currentConnection.request(request, timeoutMills);
                 if (response == null) {
                     throw new NacosException(SERVER_ERROR, "Unknown Exception.");
                 }
                 if (response instanceof ErrorResponse) {
+                    /**
+                     * UN_REGISTER  重连其他nacos节点
+                     */
                     if (response.getErrorCode() == NacosException.UN_REGISTER) {
                         synchronized (this) {
                             waitReconnect = true;
@@ -744,6 +765,9 @@ public abstract class RpcClient implements Closeable {
                                 LoggerUtils.printIfErrorEnabled(LOGGER,
                                         "Connection is unregistered, switch server,connectionId={},request={}",
                                         currentConnection.getConnectionId(), request.getClass().getSimpleName());
+                                /**
+                                 * 执行ReconnectContext
+                                 */
                                 switchServerAsync();
                             }
                         }
@@ -776,6 +800,9 @@ public abstract class RpcClient implements Closeable {
         }
 
         if (rpcClientStatus.compareAndSet(RpcClientStatus.RUNNING, RpcClientStatus.UNHEALTHY)) {
+            /**
+             * 执行ReconnectContext
+             */
             switchServerAsyncOnRequestFail();
         }
 
