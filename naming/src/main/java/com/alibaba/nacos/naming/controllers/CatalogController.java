@@ -153,6 +153,9 @@ public class CatalogController {
         if (withInstances) {
             return judgeCatalogService().pageListServiceDetail(namespaceId, groupName, serviceName, pageNo, pageSize);
         }
+        /**
+         * grpc协议 ? catalogServiceV2 : catalogServiceV1
+         */
         return judgeCatalogService()
                 .pageListService(namespaceId, groupName, serviceName, pageNo, pageSize, containedInstance, hasIpCount);
     }

@@ -46,25 +46,47 @@ public class InstanceRequestHandler extends RequestHandler<InstanceRequest, Inst
     @Override
     @Secured(action = ActionTypes.WRITE, parser = NamingResourceParser.class)
     public InstanceResponse handle(InstanceRequest request, RequestMeta meta) throws NacosException {
+        /**
+         * 实例化Service
+         */
         Service service = Service
                 .newService(request.getNamespace(), request.getGroupName(), request.getServiceName(), true);
         switch (request.getType()) {
             case NamingRemoteConstants.REGISTER_INSTANCE:
+                /**
+                 * 注册
+                 */
                 return registerInstance(service, request, meta);
             case NamingRemoteConstants.DE_REGISTER_INSTANCE:
+                /**
+                 * 取消注册
+                 */
                 return deregisterInstance(service, request, meta);
             default:
                 throw new NacosException(NacosException.INVALID_PARAM,
                         String.format("Unsupported request type %s", request.getType()));
         }
     }
-    
+
+    /**
+     * 注册
+     * @param service
+     * @param request
+     * @param meta
+     * @return
+     */
     private InstanceResponse registerInstance(Service service, InstanceRequest request, RequestMeta meta) {
+        /**
+         * 注册
+         */
         clientOperationService.registerInstance(service, request.getInstance(), meta.getConnectionId());
         return new InstanceResponse(NamingRemoteConstants.REGISTER_INSTANCE);
     }
     
     private InstanceResponse deregisterInstance(Service service, InstanceRequest request, RequestMeta meta) {
+        /**
+         * 取消注册
+         */
         clientOperationService.deregisterInstance(service, request.getInstance(), meta.getConnectionId());
         return new InstanceResponse(NamingRemoteConstants.DE_REGISTER_INSTANCE);
     }

@@ -45,7 +45,12 @@ public class ServiceManager {
     public static ServiceManager getInstance() {
         return INSTANCE;
     }
-    
+
+    /**
+     * 获取全部的注册服务列表
+     * @param namespace
+     * @return
+     */
     public Set<Service> getSingletons(String namespace) {
         return namespaceSingletonMaps.getOrDefault(namespace, new HashSet<>(1));
     }

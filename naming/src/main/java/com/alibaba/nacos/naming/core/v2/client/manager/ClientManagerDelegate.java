@@ -95,6 +95,9 @@ public class ClientManagerDelegate implements ClientManager {
     }
     
     private ClientManager getClientManagerById(String clientId) {
+        /**
+         * 不包含#
+         */
         if (isConnectionBasedClient(clientId)) {
             return connectionBasedClientManager;
         }

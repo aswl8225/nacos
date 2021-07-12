@@ -71,11 +71,21 @@ public class ServiceStorage {
     public Set<String> getClusters(Service service) {
         return serviceClusterIndex.getOrDefault(service, new HashSet<>());
     }
-    
+
+    /**
+     * service是否在serviceDataIndexes中有对应
+     * @param service
+     * @return
+     */
     public ServiceInfo getData(Service service) {
         return serviceDataIndexes.containsKey(service) ? serviceDataIndexes.get(service) : getPushData(service);
     }
-    
+
+    /**
+     * 初始化ServiceInfo
+     * @param service
+     * @return
+     */
     public ServiceInfo getPushData(Service service) {
         ServiceInfo result = emptyServiceInfo(service);
         if (!ServiceManager.getInstance().containSingleton(service)) {

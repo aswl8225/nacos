@@ -56,12 +56,21 @@ public abstract class AbstractClient implements Client {
     public long getLastUpdatedTime() {
         return lastUpdatedTime;
     }
-    
+
+    /**
+     * 注册服务
+     * @param service             publish service
+     * @param instancePublishInfo instance
+     * @return
+     */
     @Override
     public boolean addServiceInstance(Service service, InstancePublishInfo instancePublishInfo) {
         if (null == publishers.put(service, instancePublishInfo)) {
             MetricsMonitor.incrementInstanceCount();
         }
+        /**
+         * 发布时间
+         */
         NotifyCenter.publishEvent(new ClientEvent.ClientChangedEvent(this));
         Loggers.SRV_LOG.info("Client change for service {}, {}", service, getClientId());
         return true;

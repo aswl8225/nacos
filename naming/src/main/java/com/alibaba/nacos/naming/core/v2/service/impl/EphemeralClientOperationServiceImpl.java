@@ -44,12 +44,27 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
     public EphemeralClientOperationServiceImpl(ClientManagerDelegate clientManager) {
         this.clientManager = clientManager;
     }
-    
+
+    /**
+     * 服务注册
+     * @param service  service
+     * @param instance instance
+     * @param clientId id of client
+     */
     @Override
     public void registerInstance(Service service, Instance instance, String clientId) {
+        /**
+         * 填充 singletonRepository  namespaceSingletonMaps
+         */
         Service singleton = ServiceManager.getInstance().getSingleton(service);
         Client client = clientManager.getClient(clientId);
+        /**
+         * 实例化InstancePublishInfo
+         */
         InstancePublishInfo instanceInfo = getPublishInfo(instance);
+        /**
+         * AbstractClient
+         */
         client.addServiceInstance(singleton, instanceInfo);
         client.setLastUpdatedTime();
         NotifyCenter.publishEvent(new ClientOperationEvent.ClientRegisterServiceEvent(singleton, clientId));

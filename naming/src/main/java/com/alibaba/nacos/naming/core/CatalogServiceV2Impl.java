@@ -117,19 +117,43 @@ public class CatalogServiceV2Impl implements CatalogService {
         ServiceInfo result = ServiceUtil.selectInstances(serviceInfo, clusterName);
         return result.getHosts();
     }
-    
+
+    /**
+     * 控制台获取服务列表
+     * @param namespaceId        namespace id of service
+     * @param groupName          group name of service
+     * @param serviceName        service name
+     * @param pageNo             page number
+     * @param pageSize           page size
+     * @param instancePattern    contained instances pattern
+     * @param ignoreEmptyService whether ignore empty service
+     * @return
+     * @throws NacosException
+     */
     @Override
     public Object pageListService(String namespaceId, String groupName, String serviceName, int pageNo, int pageSize,
             String instancePattern, boolean ignoreEmptyService) throws NacosException {
         ObjectNode result = JacksonUtils.createEmptyJsonNode();
         List<ServiceView> serviceViews = new LinkedList<>();
+        /**
+         * 获取已注册服务
+         */
         Collection<Service> services = patternServices(namespaceId, groupName, serviceName);
         if (ignoreEmptyService) {
+            /**
+             * 已注册的服务下是否有instance
+             */
             services = services.stream().filter(each -> 0 != serviceStorage.getData(each).ipCount())
                     .collect(Collectors.toList());
         }
         result.put("count", services.size());
+        /**
+         * 分页
+         */
         services = doPage(services, pageNo - 1, pageSize);
+        /**
+         * 装配数据
+         */
         for (Service each : services) {
             ServiceMetadata serviceMetadata = metadataManager.getServiceMetadata(each).orElseGet(ServiceMetadata::new);
             ServiceView serviceView = new ServiceView();
@@ -165,17 +189,34 @@ public class CatalogServiceV2Impl implements CatalogService {
             int pageSize) throws NacosException {
         return null;
     }
-    
+
+    /**
+     * 获取已注册服务
+     * @param namespaceId
+     * @param group
+     * @param serviceName
+     * @return
+     */
     private Collection<Service> patternServices(String namespaceId, String group, String serviceName) {
+        /**
+         * 是否匹配正则
+         */
         boolean noFilter = StringUtils.isBlank(serviceName) && StringUtils.isBlank(group);
         if (noFilter) {
+            /**
+             * 不匹配   获取全部的服务列表
+             */
             return ServiceManager.getInstance().getSingletons(namespaceId);
         }
+
         Collection<Service> result = new LinkedList<>();
         StringJoiner regex = new StringJoiner(Constants.SERVICE_INFO_SPLITER);
         regex.add(getRegexString(group));
         regex.add(getRegexString(serviceName));
         String regexString = regex.toString();
+        /**
+         * 获取全部的服务列表   并做正则校验
+         */
         for (Service each : ServiceManager.getInstance().getSingletons(namespaceId)) {
             if (each.getGroupedServiceName().matches(regexString)) {
                 result.add(each);
