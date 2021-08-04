@@ -88,18 +88,37 @@ public class DistroClientDataProcessor extends SmartSubscriber implements Distro
         result.add(ClientEvent.ClientVerifyFailedEvent.class);
         return result;
     }
-    
+
+    /**
+     *
+     * @param event {@link Event}
+     */
     @Override
     public void onEvent(Event event) {
+        /**
+         * Standalone
+         */
         if (EnvUtil.getStandaloneMode()) {
             return;
         }
+        /**
+         * 非grpc
+         */
         if (!upgradeJudgement.isUseGrpcFeatures()) {
             return;
         }
+        /**
+         * 通知节点
+         */
         if (event instanceof ClientEvent.ClientVerifyFailedEvent) {
+            /**
+             * 验证失败
+             */
             syncToVerifyFailedServer((ClientEvent.ClientVerifyFailedEvent) event);
         } else {
+            /**
+             * 其他
+             */
             syncToAllServer((ClientEvent) event);
         }
     }
@@ -113,7 +132,11 @@ public class DistroClientDataProcessor extends SmartSubscriber implements Distro
         // Verify failed data should be sync directly.
         distroProtocol.syncToTarget(distroKey, DataOperation.ADD, event.getTargetServer(), 0L);
     }
-    
+
+    /**
+     * 通知集群
+     * @param event
+     */
     private void syncToAllServer(ClientEvent event) {
         Client client = event.getClient();
         // Only ephemeral data sync by Distro, persist client should sync by raft.

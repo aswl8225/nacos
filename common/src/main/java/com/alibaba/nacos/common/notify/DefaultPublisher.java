@@ -114,7 +114,13 @@ public class DefaultPublisher extends Thread implements EventPublisher {
                 if (shutdown) {
                     break;
                 }
+                /**
+                 * 获取Event
+                 */
                 final Event event = queue.take();
+                /**
+                 * 处理
+                 */
                 receiveEvent(event);
                 UPDATER.compareAndSet(this, lastEventSequence, Math.max(lastEventSequence, event.sequence()));
             }
@@ -177,7 +183,9 @@ public class DefaultPublisher extends Thread implements EventPublisher {
             LOGGER.warn("[NotifyCenter] the {} is lost, because there is no subscriber.");
             return;
         }
-        
+        /**
+         * 遍历
+         */
         // Notification single event listener
         for (Subscriber subscriber : subscribers) {
             // Whether to ignore expiration events
@@ -189,6 +197,9 @@ public class DefaultPublisher extends Thread implements EventPublisher {
             
             // Because unifying smartSubscriber and subscriber, so here need to think of compatibility.
             // Remove original judge part of codes.
+            /**
+             *
+             */
             notifySubscriber(subscriber, event);
         }
     }
@@ -197,7 +208,12 @@ public class DefaultPublisher extends Thread implements EventPublisher {
     public void notifySubscriber(final Subscriber subscriber, final Event event) {
         
         LOGGER.debug("[NotifyCenter] the {} will received by {}", event, subscriber);
-        
+
+        /**
+         * ClientEvent.ClientChangedEvent  -> DistroClientDataProcessor
+         *
+         * ClientOperationEvent.ClientRegisterServiceEvent  -> ClientServiceIndexesManager
+         */
         final Runnable job = () -> subscriber.onEvent(event);
         final Executor executor = subscriber.executor();
         

@@ -101,6 +101,9 @@ public class DistroProtocol {
      * @param action    the action of data operation
      */
     public void sync(DistroKey distroKey, DataOperation action) {
+        /**
+         *
+         */
         sync(distroKey, action, DistroConfig.getInstance().getSyncDelayMillis());
     }
     
@@ -112,6 +115,9 @@ public class DistroProtocol {
      * @param delay     delay time for sync
      */
     public void sync(DistroKey distroKey, DataOperation action, long delay) {
+        /**
+         * 通知集群内其他节点
+         */
         for (Member each : memberManager.allMembersWithoutSelf()) {
             syncToTarget(distroKey, action, each.getAddress(), delay);
         }
