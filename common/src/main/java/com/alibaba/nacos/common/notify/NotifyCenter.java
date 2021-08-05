@@ -84,7 +84,10 @@ public class NotifyCenter {
         } else {
             clazz = DefaultPublisher.class;
         }
-        
+
+        /**
+         * 初始化EventPublisher
+         */
         publisherFactory = new BiFunction<Class<? extends Event>, Integer, EventPublisher>() {
             
             @Override
@@ -173,25 +176,41 @@ public class NotifyCenter {
     public static <T> void registerSubscriber(final Subscriber consumer) {
         // If you want to listen to multiple events, you do it separately,
         // based on subclass's subscribeTypes method return list, it can register to publisher.
+        /**
+         * 如果要收听多个事件，请分别收听，
+         * 基于子类的subscribeTypes方法返回列表，它可以注册到发布者。
+         */
         if (consumer instanceof SmartSubscriber) {
+            /**
+             * 遍历监听者列表
+             */
             for (Class<? extends Event> subscribeType : ((SmartSubscriber) consumer).subscribeTypes()) {
                 // For case, producer: defaultSharePublisher -> consumer: smartSubscriber.
                 if (ClassUtils.isAssignableFrom(SlowEvent.class, subscribeType)) {
                     INSTANCE.sharePublisher.addSubscriber(consumer, subscribeType);
                 } else {
                     // For case, producer: defaultPublisher -> consumer: subscriber.
+                    /**
+                     * 添加监听
+                     */
                     addSubscriber(consumer, subscribeType);
                 }
             }
             return;
         }
-        
+
+        /**
+         * 获取consumer订阅的Event
+         */
         final Class<? extends Event> subscribeType = consumer.subscribeType();
         if (ClassUtils.isAssignableFrom(SlowEvent.class, subscribeType)) {
             INSTANCE.sharePublisher.addSubscriber(consumer, subscribeType);
             return;
         }
-        
+
+        /**
+         * 添加订阅
+         */
         addSubscriber(consumer, subscribeType);
     }
     
@@ -209,6 +228,9 @@ public class NotifyCenter {
             MapUtil.computeIfAbsent(INSTANCE.publisherMap, topic, publisherFactory, subscribeType, ringBufferSize);
         }
         EventPublisher publisher = INSTANCE.publisherMap.get(topic);
+        /**
+         * 为publisher添加订阅
+         */
         publisher.addSubscriber(consumer);
     }
     
@@ -312,6 +334,9 @@ public class NotifyCenter {
      * @param queueMaxSize the publisher's queue max size.
      */
     public static EventPublisher registerToPublisher(final Class<? extends Event> eventType, final int queueMaxSize) {
+        /**
+         * 先执行static代码块
+         */
         if (ClassUtils.isAssignableFrom(SlowEvent.class, eventType)) {
             return INSTANCE.sharePublisher;
         }
@@ -319,6 +344,9 @@ public class NotifyCenter {
         final String topic = ClassUtils.getCanonicalName(eventType);
         synchronized (NotifyCenter.class) {
             // MapUtils.computeIfAbsent is a unsafe method.
+            /**
+             * 向INSTANCE.publisherMap中添加topic和对应的DefaultPublisher
+             */
             MapUtil.computeIfAbsent(INSTANCE.publisherMap, topic, publisherFactory, eventType, queueMaxSize);
         }
         return INSTANCE.publisherMap.get(topic);

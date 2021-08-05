@@ -92,7 +92,13 @@ public class NacosNamingService implements NamingService {
         initLogName(properties);
 
         this.changeNotifier = new InstancesChangeNotifier();
+        /**
+         * 向INSTANCE.publisherMap中添加InstancesChangeEvent对应的DefaultPublisher
+         */
         NotifyCenter.registerToPublisher(InstancesChangeEvent.class, 16384);
+        /**
+         * 将changeNotifier注入到对应的DefaultPublisher中
+         */
         NotifyCenter.registerSubscriber(changeNotifier);
         /**
          * 缓存 容错文件
