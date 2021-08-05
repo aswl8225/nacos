@@ -63,7 +63,7 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
          */
         InstancePublishInfo instanceInfo = getPublishInfo(instance);
         /**
-         * AbstractClient
+         * AbstractClient  ClientEvent.ClientChangedEvent
          */
         client.addServiceInstance(singleton, instanceInfo);
         client.setLastUpdatedTime();
