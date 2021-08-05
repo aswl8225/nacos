@@ -211,6 +211,7 @@ public class DefaultPublisher extends Thread implements EventPublisher {
 
         /**
          * ClientEvent.ClientChangedEvent  -> DistroClientDataProcessor
+         *    通知其他节点
          *
          * ClientOperationEvent.ClientRegisterServiceEvent  -> ClientServiceIndexesManager
          */

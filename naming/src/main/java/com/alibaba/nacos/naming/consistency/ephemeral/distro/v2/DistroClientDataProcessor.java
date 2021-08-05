@@ -67,6 +67,9 @@ public class DistroClientDataProcessor extends SmartSubscriber implements Distro
         this.clientManager = clientManager;
         this.distroProtocol = distroProtocol;
         this.upgradeJudgement = upgradeJudgement;
+        /**
+         * 添加publisher以及对应的subscriber
+         */
         NotifyCenter.registerSubscriber(this);
     }
     
