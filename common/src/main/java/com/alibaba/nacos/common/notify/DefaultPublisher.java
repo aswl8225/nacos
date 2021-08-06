@@ -214,8 +214,12 @@ public class DefaultPublisher extends Thread implements EventPublisher {
          *    通知其他节点
          *
          * ClientOperationEvent.ClientRegisterServiceEvent  -> ClientServiceIndexesManager
+         *    通知所有订阅当前服务的客户端
          */
         final Runnable job = () -> subscriber.onEvent(event);
+        /**
+         * 默认为同步  即executor=null
+         */
         final Executor executor = subscriber.executor();
         
         if (executor != null) {

@@ -69,9 +69,12 @@ public class EphemeralClientOperationServiceImpl implements ClientOperationServi
         client.addServiceInstance(singleton, instanceInfo);
         client.setLastUpdatedTime();
         /**
-         *
+         * 通知其他订阅过当前服务的节点   服务下实例有变化
          */
         NotifyCenter.publishEvent(new ClientOperationEvent.ClientRegisterServiceEvent(singleton, clientId));
+        /**
+         *
+         */
         NotifyCenter
                 .publishEvent(new MetadataEvent.InstanceMetadataEvent(singleton, instanceInfo.getMetadataId(), false));
     }
