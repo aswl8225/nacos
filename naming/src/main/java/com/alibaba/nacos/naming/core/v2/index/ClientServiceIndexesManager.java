@@ -138,7 +138,12 @@ public class ClientServiceIndexesManager extends SmartSubscriber {
             removeSubscriberIndexes(service, clientId);
         }
     }
-    
+
+    /**
+     * 服务注册
+     * @param service
+     * @param clientId
+     */
     private void addPublisherIndexes(Service service, String clientId) {
         publisherIndexes.computeIfAbsent(service, (key) -> new ConcurrentHashSet<>());
         publisherIndexes.get(service).add(clientId);

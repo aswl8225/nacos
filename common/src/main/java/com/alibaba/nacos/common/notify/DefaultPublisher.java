@@ -198,7 +198,7 @@ public class DefaultPublisher extends Thread implements EventPublisher {
             // Because unifying smartSubscriber and subscriber, so here need to think of compatibility.
             // Remove original judge part of codes.
             /**
-             *
+             * 通知订阅者
              */
             notifySubscriber(subscriber, event);
         }
@@ -211,7 +211,7 @@ public class DefaultPublisher extends Thread implements EventPublisher {
 
         /**
          * ClientEvent.ClientChangedEvent  -> DistroClientDataProcessor
-         *    通知其他节点
+         *    通知nacos集群中其他节点
          *
          * ClientOperationEvent.ClientRegisterServiceEvent  -> ClientServiceIndexesManager
          *    通知所有订阅当前服务的客户端
