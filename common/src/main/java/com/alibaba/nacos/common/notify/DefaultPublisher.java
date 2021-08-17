@@ -215,6 +215,10 @@ public class DefaultPublisher extends Thread implements EventPublisher {
          *
          * ClientOperationEvent.ClientRegisterServiceEvent  -> ClientServiceIndexesManager
          *    通知所有订阅当前服务的客户端
+         *
+         * ServiceEvent.ServiceChangedEvent ->
+         *          DoubleWriteEventListener            双写？？？？
+         *          NamingSubscriberServiceV2Impl
          */
         final Runnable job = () -> subscriber.onEvent(event);
         /**
