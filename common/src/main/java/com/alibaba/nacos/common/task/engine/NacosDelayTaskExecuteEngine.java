@@ -119,15 +119,26 @@ public class NacosDelayTaskExecuteEngine extends AbstractNacosTaskExecuteEngine<
         tasks.clear();
         processingExecutor.shutdown();
     }
-    
+
+    /**
+     * 添加task
+     * @param key  key of task
+     * @param newTask
+     */
     @Override
     public void addTask(Object key, AbstractDelayTask newTask) {
         lock.lock();
         try {
+            /**
+             * 没有则新增  有则更新
+             */
             AbstractDelayTask existTask = tasks.get(key);
             if (null != existTask) {
                 newTask.merge(existTask);
             }
+            /**
+             * ProcessRunnable.run
+             */
             tasks.put(key, newTask);
         } finally {
             lock.unlock();
@@ -138,12 +149,21 @@ public class NacosDelayTaskExecuteEngine extends AbstractNacosTaskExecuteEngine<
      * process tasks in execute engine.
      */
     protected void processTasks() {
+        /**
+         * 获取全部task集合
+         */
         Collection<Object> keys = getAllTaskKeys();
         for (Object taskKey : keys) {
+            /**
+             * 在集合中获取并移除task
+             */
             AbstractDelayTask task = removeTask(taskKey);
             if (null == task) {
                 continue;
             }
+            /**
+             * 获取task对应的processor
+             */
             NacosTaskProcessor processor = getProcessor(taskKey);
             if (null == processor) {
                 getEngineLog().error("processor not found for task, so discarded. " + task);
@@ -151,7 +171,13 @@ public class NacosDelayTaskExecuteEngine extends AbstractNacosTaskExecuteEngine<
             }
             try {
                 // ReAdd task if process failed
+                /**
+                 * 处理task   如果失败则将当前task再次放入集合中   PushDelayTaskExecuteEngine
+                 */
                 if (!processor.process(task)) {
+                    /**
+                     * 将task再次放入集合
+                     */
                     retryFailedTask(taskKey, task);
                 }
             } catch (Throwable e) {
@@ -163,6 +189,9 @@ public class NacosDelayTaskExecuteEngine extends AbstractNacosTaskExecuteEngine<
     
     private void retryFailedTask(Object key, AbstractDelayTask task) {
         task.setLastProcessTime(System.currentTimeMillis());
+        /**
+         * 添加task
+         */
         addTask(key, task);
     }
     

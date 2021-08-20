@@ -214,11 +214,9 @@ public class DefaultPublisher extends Thread implements EventPublisher {
          *    通知nacos集群中其他节点
          *
          * ClientOperationEvent.ClientRegisterServiceEvent  -> ClientServiceIndexesManager
-         *    通知所有订阅当前服务的客户端
-         *
-         * ServiceEvent.ServiceChangedEvent ->
-         *          DoubleWriteEventListener            双写？？？？
-         *          NamingSubscriberServiceV2Impl
+         *        ServiceEvent.ServiceChangedEvent ->
+         *            DoubleWriteEventListener            双写？？？？
+         *            NamingSubscriberServiceV2Impl       通知所有订阅当前服务的客户端
          */
         final Runnable job = () -> subscriber.onEvent(event);
         /**
